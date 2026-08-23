@@ -1,0 +1,156 @@
+# ============================================================
+# AIREX — Development stack (Phase 0)
+# All services share the `airex-network` and use service names.
+# ============================================================
+name: airex
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: airex-postgres
+    environment:
+      POSTGRES_USER: airex
+      POSTGRES_PASSWORD: airex
+      POSTGRES_DB: airex
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airex -d airex"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - airex-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: airex-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - airex-network
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: airex-api
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://airex:airex@postgres:5432/airex
+      REDIS_URL: redis://redis:6379/0
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./apps/api:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:8000/health',timeout=3)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - airex-network
+
+  worker:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: airex-worker
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://airex:airex@postgres:5432/airex
+      REDIS_URL: redis://redis:6379/0
+    command: ["python", "-m", "app.workers.worker"]
+    # The worker image is built from the API Dockerfile (which healthchecks uvicorn
+    # on :8000). The worker does not run uvicorn, so override the healthcheck to
+    # verify what the worker actually depends on: Redis connectivity.
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import redis; redis.Redis.from_url('redis://redis:6379/0').ping()\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    volumes:
+      - ./apps/api:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - airex-network
+
+  web:
+    # Build context is the repository root so npm workspaces (@airex/*) resolve.
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    container_name: airex-web
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    networks:
+      - airex-network
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: airex-prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    depends_on:
+      - api
+    networks:
+      - airex-network
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: airex-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SERVER_HTTP_PORT: "3001"
+    ports:
+      - "3001:3001"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - airex-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  airex-network:
+    driver: bridge

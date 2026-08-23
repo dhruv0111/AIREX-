@@ -1,0 +1,19 @@
+# Root-level .dockerignore used by root-context builds (apps/web Dockerfile).
+# app-specific ignores live in their own .dockerignore files (apps/api, apps/web).
+**/node_modules
+**/.next
+**/.venv
+**/__pycache__
+**/*.pyc
+.git
+*.log
+.env
+.env.local
+.coverage
+htmlcov
+.coverage.*
+dist
+out
+.next
+playwright-report
+test-results

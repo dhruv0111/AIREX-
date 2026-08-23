@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    name: Backend (lint, typecheck, tests, build)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: airex
+          POSTGRES_PASSWORD: airex
+          POSTGRES_DB: airex_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U airex"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+      - name: Install dependencies
+        run: |
+          pip install .
+          pip install -e ".[dev]"
+      - name: Ruff lint
+        run: ruff check app tests
+      - name: Black format check
+        run: black --check app tests
+      - name: MyPy typecheck
+        run: mypy app
+      - name: Unit + integration tests (Postgres + Redis)
+        env:
+          DATABASE_URL: postgresql+asyncpg://airex:airex@localhost:5432/airex_test
+          REDIS_URL: redis://localhost:6379/0
+          JWT_SECRET_KEY: ci-secret-key
+        run: |
+          alembic upgrade head
+          pytest -q --cov=app --cov-report=term-missing
+      - name: Build image
+        run: docker build -t airex-api:ci .
+
+  frontend:
+    name: Frontend (lint, typecheck, tests, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: ESLint
+        run: npx eslint . --max-warnings 0
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Unit tests
+        run: npm test
+      - name: Build
+        run: npm run build
+      - name: Build image
+        run: docker build -t airex-web:ci .

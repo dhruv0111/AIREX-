@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# AIREX CLI wrapper (bash).
+set -euo pipefail
+cd "$(dirname "$0")/../apps/api"
+exec python -m app.cli "$@"
