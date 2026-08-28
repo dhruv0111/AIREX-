@@ -51,6 +51,36 @@ queue_jobs_failed_total = Counter(
     "queue_jobs_failed_total",
     "Total jobs failed",
 )
+# ---- Phase 7 CI/CD Metrics ----
+ci_runs_total = Counter(
+    "airex_ci_runs_total",
+    "Total CI runs triggered",
+    ["provider", "status"],
+)
+ci_run_failures_total = Counter(
+    "airex_ci_run_failures_total",
+    "Total CI run failures by category",
+    ["category"],
+)
+ci_run_duration_seconds = Histogram(
+    "airex_ci_run_duration_seconds",
+    "CI run execution duration in seconds",
+)
+quality_gate_enforcements_total = Counter(
+    "airex_quality_gate_enforcements_total",
+    "Total quality gate policy enforcements",
+    ["metric_name"],
+)
+quality_gate_blocks_total = Counter(
+    "airex_quality_gate_blocks_total",
+    "Total quality gate policy blocks",
+    ["metric_name"],
+)
+service_token_auth_failures_total = Counter(
+    "airex_service_token_auth_failures_total",
+    "Total service token authentication failures",
+)
+
 # ---- Phase 1 model observability (spec §30) ----
 model_requests_total = Counter(
     "airex_model_requests_total",
@@ -161,6 +191,88 @@ generation_errors_total = Counter(
 generation_provider_requests_total = Counter(
     "airex_generation_provider_requests_total",
     "Total generator model provider requests",
+)
+
+
+# ---- Phase 6 experiment & benchmarking observability ----
+airex_experiments_total = Counter(
+    "airex_experiments_total",
+    "Total experiments completed",
+)
+airex_experiment_runs_total = Counter(
+    "airex_experiment_runs_total",
+    "Total experiment runs",
+    ["status"],
+)
+airex_experiment_failures_total = Counter(
+    "airex_experiment_failures_total",
+    "Total experiment failures",
+)
+airex_experiment_duration_seconds = Histogram(
+    "airex_experiment_duration_seconds",
+    "Experiment run duration (seconds)",
+)
+airex_experiment_regressions_total = Counter(
+    "airex_experiment_regressions_total",
+    "Total regressions detected",
+)
+airex_quality_gate_failures_total = Counter(
+    "airex_quality_gate_failures_total",
+    "Total quality gate failures",
+)
+
+# ---- Phase 8 Observability Metrics ----
+airex_observability_ingested_total = Counter(
+    "airex_observability_ingested_total",
+    "Total observability events (traces + spans) ingested",
+)
+airex_observability_ingestion_errors_total = Counter(
+    "airex_observability_ingestion_errors_total",
+    "Total observability ingestion failures",
+)
+airex_trace_duration_seconds = Histogram(
+    "airex_trace_duration_seconds",
+    "Duration of end-to-end traces in seconds",
+)
+airex_llm_requests_total = Counter(
+    "airex_llm_requests_total",
+    "Total LLM requests captured in observability",
+    ["provider", "model"],
+)
+airex_llm_errors_total = Counter(
+    "airex_llm_errors_total",
+    "Total LLM request errors captured in observability",
+    ["provider", "model", "error_category"],
+)
+airex_llm_tokens_total = Counter(
+    "airex_llm_tokens_total",
+    "Total tokens consumed by LLM requests",
+    ["provider", "model"],
+)
+airex_llm_cost_total = Counter(
+    "airex_llm_cost_total",
+    "Estimated total cost of LLM invocations",
+    ["provider", "model"],
+)
+airex_alerts_triggered_total = Counter(
+    "airex_alerts_triggered_total",
+    "Total alerts triggered",
+    ["metric", "severity"],
+)
+airex_alerts_resolved_total = Counter(
+    "airex_alerts_resolved_total",
+    "Total alerts resolved",
+    ["metric"],
+)
+airex_notifications_sent_total = Counter(
+    "airex_notifications_sent_total",
+    "Total alert notifications sent successfully",
+    ["channel"],
+)
+airex_notifications_failed_total = Counter(
+    "airex_notifications_failed_total",
+    "Total alert notifications that failed to send",
+    ["channel"],
 )
 
 

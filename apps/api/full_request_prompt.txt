@@ -1,0 +1,573 @@
+<USER_REQUEST>
+# AIREX — PHASE 9 FINAL RELEASE GATE & FULL VERIFICATION
+
+IMPORTANT: Phase 9 implementation has been reported as complete, but do NOT automatically declare:
+
+> PHASE 9: PASS
+
+The latest implementation report confirms:
+
+* Benchmark CLI commands were added.
+* Benchmark suites and runs have frontend pages.
+* Benchmark run analytics include statistical evidence.
+* Welch's t-test significance is displayed.
+* Failure clustering is implemented.
+* Root-cause analysis is implemented.
+* Backend tests reported: 552 passed.
+* Frontend TypeScript validation reported: PASS.
+* `PHASE9_IMPLEMENTATION_REPORT.md` exists.
+
+However, implementation evidence alone is not sufficient for a final PASS.
+
+Your task is now to perform the **Phase 9 Final Release Gate**.
+
+Do not add Phase 10 features.
+
+Do not rewrite working Phase 9 functionality unless a verification failure requires a fix.
+
+---
+
+# PART 1 — REPOSITORY AUDIT
+
+First inspect the actual repository and verify that all claimed Phase 9 functionality exists.
+
+Create this table:
+
+| Area | Requirement | Implemented | Tested | Executed | Status |
+| ---- | ----------- | ----------: | -----: | -------: | ------ |
+
+Verify all of the following.
+
+## Benchmarking
+
+* Benchmark suite creation
+* Benchmark configuration validation
+* Benchmark versioning
+* Immutable benchmark versions
+* Benchmark execution
+* Benchmark run state machine
+* Benchmark results persistence
+* Benchmark comparison
+* Historical benchmark results
+* Incompatible benchmark detection
+
+## Statistical Evidence
+
+* Welch's t-test
+* Cohen's d
+* Sample size
+* P-value
+* Confidence information
+* Insufficient evidence handling
+* Baseline vs candidate comparison
+
+## Reliability Intelligence
+
+* Reliability score
+* Configurable weights
+* Weight validation
+* Methodology version
+* Reliability dimensions
+* Confidence classification
+
+## Failure Intelligence
+
+* Failure taxonomy
+* Deterministic clustering
+* Failure percentage
+* Severity
+* Regression attribution
+* Root-cause analysis
+* Evidence-backed explanations
+
+## Reproducibility
+
+* Dataset checksum
+* Configuration hash
+* Benchmark version
+* Evaluation version
+* Methodology version
+* Model/provider/environment lineage
+* Reproduction command
+* Reproduced run creates a new run
+* Original run remains immutable
+
+## Platform
+
+* REST API
+* CLI
+* Frontend
+* RBAC
+* Tenant isolation
+* Audit events
+* Metrics
+* Database migration
+* Documentation
+
+---
+
+# PART 2 — VERIFY THE WORKER CONCURRENCY FIX
+
+A critical worker deadlock was previously fixed by changing task execution from sequential processing to concurrent task handling.
+
+This fix must be tested before Phase 9 is declared production-ready.
+
+Verify:
+
+1. Multiple evaluation tasks can execute concurrently.
+2. Multiple benchmark tasks can execute concurrently.
+3. Generation and evaluation can run simultaneously.
+4. Experiment execution does not block unrelated jobs.
+5. A failing task does not terminate the worker loop.
+6. Exceptions from background tasks are captured.
+7. Completed tasks are cleaned up.
+8. Active task tracking does not leak memory.
+9. Concurrency is bounded.
+10. Worker shutdown safely handles active tasks.
+11. Redis-backed execution works.
+12. In-memory fallback works.
+13. Existing Phase 3 tasks still work.
+14. Existing Phase 5 tasks still work.
+15. Existing Phase 6 experiment tasks still work.
+16. Existing Phase 8 periodic tasks still work.
+17. Phase 9 benchmark tasks still work.
+
+IMPORTANT:
+
+Inspect the actual `asyncio.create_task` implementation.
+
+Do not accept fire-and-forget tasks without lifecycle management.
+
+If the current implementation can create unlimited tasks, fix it with bounded concurrency using the existing architecture.
+
+Do not introduce an unnecessary new task framework.
+
+---
+
+# PART 3 — DATABASE MIGRATION RELEASE GATE
+
+Use the real PostgreSQL Docker environment if available.
+
+Test Phase 9 migration against:
+
+## Fresh Database
+
+Run:
+
+1. Create empty database.
+2. `alembic upgrade head`
+3. Verify all Phase 9 tables.
+4. Insert representative benchmark data.
+5. Verify constraints.
+
+## Existing Phase 8 Database
+
+Run:
+
+1. Start from Phase 8 schema.
+2. Upgrade to Phase 9.
+3. Verify existing data remains valid.
+4. Verify new Phase 9 tables.
+5. Run application tests.
+
+## Migration Reversibility
+
+Run:
+
+upgrade
+downgrade
+upgrade
+
+Verify the schema is valid after every step.
+
+Do not use SQLite as a replacement for PostgreSQL verification.
+
+SQLite compatibility may be tested separately.
+
+---
+
+# PART 4 — BACKEND TESTING
+
+Run the complete backend suite.
+
+Execute:
+
+* Unit tests
+* Integration tests
+* Security tests
+* Phase 9 tests
+* Worker concurrency tests
+* Benchmark tests
+* Reproducibility tests
+
+Report the exact result:
+
+PASSED
+FAILED
+SKIPPED
+
+Example format:
+
+> 552 passed, 0 failed, X skipped
+
+Do not reuse an old test count without executing the suite again.
+
+---
+
+# PART 5 — SECURITY RELEASE GATE
+
+Verify Phase 9 specifically against:
+
+## Authorization
+
+* Viewer cannot create benchmarks.
+* Viewer cannot run benchmarks.
+* Viewer cannot modify benchmark configuration.
+* Engineer permissions are correct.
+* Admin permissions are correct.
+* Owner permissions are correct.
+
+## Tenant Isolation
+
+* Cross-organization benchmark access returns 404.
+* Cross-organization benchmark execution is blocked.
+* Cross-organization benchmark results cannot be read.
+
+## Input Security
+
+Test:
+
+* YAML injection or unsafe YAML parsing.
+* Invalid benchmark configuration.
+* SQL injection attempts.
+* Oversized benchmark configuration.
+* Invalid weights.
+* Invalid model identifiers.
+* Invalid benchmark IDs.
+* CLI argument injection.
+* Reproduction command misuse.
+
+## Data Protection
+
+Verify:
+
+* Provider credentials never appear in benchmark results.
+* Secrets do not appear in reports.
+* Internal stack traces are not exposed.
+* Audit records do not leak sensitive data.
+
+---
+
+# PART 6 — FRONTEND RELEASE GATE
+
+Run:
+
+1. TypeScript validation:
+   `tsc --noEmit`
+
+2. Production build:
+   `next build`
+
+Both must pass.
+
+Then execute Phase 9 Playwright tests in Chromium.
+
+Test the complete user journey:
+
+1. Login.
+2. Select project.
+3. Open benchmark page.
+4. Create benchmark suite.
+5. Validate invalid configuration handling.
+6. Save benchmark.
+7. Start benchmark run.
+8. Verify status progression.
+9. Wait for completion.
+10. Open results.
+11. Verify statistical evidence.
+12. Verify baseline/candidate comparison.
+13. Verify failure clusters.
+14. Verify root-cause analysis.
+15. Verify recommendations.
+16. Verify empty states.
+17. Verify error states.
+18. Verify RBAC restrictions.
+
+Run the actual browser tests.
+
+Do not mark UI criteria PASS merely because the TypeScript build succeeds.
+
+---
+
+# PART 7 — CLI RELEASE GATE
+
+Test the actual CLI commands.
+
+At minimum:
+
+```text
+airex benchmarks create
+airex benchmarks run
+airex benchmarks status
+airex benchmarks results
+```
+
+Also verify benchmark reproduction if implemented:
+
+```text
+airex benchmark reproduce <run-id>
+```
+
+Verify:
+
+* Valid command execution.
+* Invalid input handling.
+* Authentication handling.
+* Authorization handling.
+* API failure handling.
+* Timeout handling.
+* Exit codes.
+* Machine-readable output if supported.
+
+---
+
+# PART 8 — REPRODUCIBILITY RELEASE GATE
+
+Create a benchmark run.
+
+Record:
+
+* Dataset checksum
+* Benchmark version
+* Configuration hash
+* Evaluation version
+* Methodology version
+* Model
+* Provider
+* Environment
+
+Then reproduce the run.
+
+Verify:
+
+1. A new run is created.
+2. Original run is unchanged.
+3. Historical configuration is preserved.
+4. Reproduction uses the recorded configuration.
+5. Missing historical dependencies produce a clear error.
+6. Reproduction does not silently use current/latest configuration.
+
+---
+
+# PART 9 — PERFORMANCE & RELIABILITY CHECK
+
+Run a realistic benchmark workload.
+
+Test:
+
+* Multiple benchmark runs.
+* Concurrent jobs.
+* Worker stability.
+* No deadlock.
+* No task leak.
+* No unbounded concurrency.
+* Database persistence.
+* Correct result isolation.
+
+Report:
+
+* Number of concurrent runs.
+* Completion success rate.
+* Failures.
+* Deadlocks.
+* Any limitations.
+
+Do not invent performance numbers.
+
+---
+
+# PART 10 — FULL REGRESSION
+
+Run all supported verification:
+
+## Backend
+
+Full Phase 0–9 test suite.
+
+## Frontend
+
+* TypeScript
+* Production build
+
+## E2E
+
+Run all available Playwright suites.
+
+## Docker
+
+Run the full stack where available.
+
+Verify:
+
+* PostgreSQL
+* Redis
+* Backend
+* Worker
+* Frontend
+* Prometheus/monitoring where applicable
+
+---
+
+# PART 11 — ACCEPTANCE CRITERIA
+
+Create explicit acceptance criteria.
+
+Use IDs:
+
+AT-P9-001
+AT-P9-002
+...
+AT-P9-XXX
+
+Every criterion must have one status only:
+
+PASS
+FAIL
+NOT EXECUTED
+
+For every PASS include actual evidence.
+
+Do not convert:
+
+* "implemented"
+* "code exists"
+* "test written"
+
+into PASS.
+
+Only actual successful execution counts as PASS.
+
+---
+
+# PART 12 — FINAL REPORT
+
+Update:
+
+`docs/development/PHASE9_IMPLEMENTATION_REPORT.md`
+
+Include:
+
+1. Initial implementation audit
+2. Benchmark architecture
+3. Evidence architecture
+4. Reliability scoring
+5. Statistical engine
+6. Failure clustering
+7. Root-cause analysis
+8. Reproducibility
+9. Worker concurrency architecture
+10. Worker deadlock regression validation
+11. Database migration verification
+12. Security testing
+13. Backend testing
+14. CLI testing
+15. Frontend testing
+16. Playwright testing
+17. Docker verification
+18. Performance testing
+19. Full regression testing
+20. Acceptance criteria
+21. Known limitations
+
+---
+
+# FINAL OUTPUT
+
+Provide this exact summary:
+
+## Phase 9 Audit Summary
+
+### Backend
+
+STATUS
+
+### Database
+
+STATUS
+
+### Worker
+
+STATUS
+
+### CLI
+
+STATUS
+
+### Frontend
+
+STATUS
+
+### E2E
+
+STATUS
+
+### Security
+
+STATUS
+
+### Reproducibility
+
+STATUS
+
+### Regression
+
+STATUS
+
+---
+
+## Actual Verification Numbers
+
+* Backend tests:
+* Phase 9 tests:
+* Security tests:
+* Playwright tests:
+* TypeScript:
+* Next.js production build:
+* PostgreSQL migration:
+* Worker concurrency tests:
+
+---
+
+## Honest Final Status
+
+Choose only one:
+
+# PHASE 9: PASS
+
+# PHASE 9: PARTIAL
+
+# PHASE 9: FAIL
+
+IMPORTANT:
+
+Do not start Phase 10.
+
+Phase 10 planning can begin only after this release gate is complete and the actual verification results are documented.
+
+BEGIN THE PHASE 9 FINAL RELEASE GATE NOW.
+
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-08-28T19:41:53+05:30.
+
+The user's current state is as follows:
+Other open documents:
+- c:\Users\testing\Desktop\AI_Reliability\apps\web\app\projects\[id]\benchmarks\page.tsx (LANGUAGE_TSX)
+- c:\Users\testing\Desktop\AI_Reliability\apps\api\alembic\versions\0010_phase9_benchmarking.py (LANGUAGE_PYTHON)
+- c:\Users\testing\Desktop\AI_Reliability\apps\api\app\repositories\benchmark.py (LANGUAGE_PYTHON)
+- c:\Users\testing\Desktop\AI_Reliability\tests\e2e\tests\observability.spec.ts (LANGUAGE_TYPESCRIPT)
+- c:\Users\testing\Desktop\AI_Reliability\apps\api\benchmark.yaml (LANGUAGE_YAML)
+</ADDITIONAL_METADATA>
+<USER_SETTINGS_CHANGE>
+The user changed setting `Model Selection` from None to Gemini 3.5 Flash (Medium). No need to comment on this change if the user doesn't ask about it. If reporting what model you are, please use a human readable name instead of the exact string.
+</USER_SETTINGS_CHANGE>

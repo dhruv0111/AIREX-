@@ -37,7 +37,7 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
             duration_ms = int((time.perf_counter() - start) * 1000)
             status = getattr(response, "status_code", 500) if response is not None else 500
             logger.info(
-                "request",
+                f"{request.method} {request.url.path} -> {status} ({duration_ms}ms)",
                 extra={
                     "method": request.method,
                     "path": request.url.path,

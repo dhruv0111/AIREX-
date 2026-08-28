@@ -1,0 +1,13 @@
+experiment:
+  baseline:
+    model: gpt-4o
+  candidate:
+    model: claude-3-5
+  dataset: production-dataset
+project: 435365ab-76be-4f44-8aa9-91691c65c4fa
+quality_gates:
+- metric: exact_match
+  operator: gte
+  required: true
+  threshold: 0.9
+version: '1'

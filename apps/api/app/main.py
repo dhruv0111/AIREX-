@@ -21,9 +21,28 @@ async def lifespan(app: FastAPI):
     # Phase 0 uses Alembic migrations for PostgreSQL; SQLite dev fallback is
     # created here only when explicitly configured (see config.is_sqlite).
     from app.db.session import init_models
+    import asyncio
+    import logging
 
-    await init_models(create_all=False)
-    yield
+    await init_models(create_all=True)
+
+    # Spawn in-process background worker task if running locally with in-memory queue
+    settings = get_settings()
+    worker_task = None
+    if settings.redis_url.startswith("memory://"):
+        from app.workers.worker import run_worker
+        worker_task = asyncio.create_task(run_worker())
+        logging.getLogger("airex").info("Spawned in-process background worker task")
+
+    try:
+        yield
+    finally:
+        if worker_task is not None:
+            worker_task.cancel()
+            try:
+                await worker_task
+            except asyncio.CancelledError:
+                pass
 
 
 def create_app() -> FastAPI:

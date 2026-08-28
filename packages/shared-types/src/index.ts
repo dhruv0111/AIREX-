@@ -394,3 +394,435 @@ export interface DatasetVersionFromCandidatesResponse {
   record_count: number;
   checksum: string;
 }
+
+// ---- Phase 6: experiments / benchmarking / quality gates ----
+export interface VariantCreate {
+  model_id?: string | null;
+  prompt_version_id?: string | null;
+  prompt_content?: string | null;
+  dataset_version_id?: string | null;
+  configuration?: Record<string, unknown> | null;
+}
+
+export interface VariantResponse {
+  id: string;
+  experiment_id: string;
+  variant_type: string;
+  model_id: string | null;
+  prompt_version_id: string | null;
+  dataset_version_id: string | null;
+  configuration: Record<string, unknown> | null;
+}
+
+export interface QualityGateCreate {
+  metric_name: string;
+  gate_type?: string;
+  operator: string;
+  threshold: number;
+  severity?: string;
+  is_required?: boolean;
+}
+
+export interface QualityGateResponse {
+  id: string;
+  experiment_id: string;
+  metric_name: string;
+  gate_type: string;
+  operator: string;
+  threshold: number;
+  severity: string;
+  is_required: boolean;
+}
+
+export interface ExperimentCreate {
+  project_id: string;
+  name: string;
+  description?: string | null;
+  experiment_type?: string;
+  dataset_version_id?: string | null;
+  model_id?: string | null;
+  configuration?: Record<string, unknown> | null;
+  baseline: VariantCreate;
+  candidate: VariantCreate;
+  quality_gates?: QualityGateCreate[];
+}
+
+export interface ExperimentUpdate {
+  name?: string | null;
+  description?: string | null;
+}
+
+export interface ExperimentResponse {
+  id: string;
+  project_id: string;
+  name: string;
+  description: string | null;
+  dataset_version_id: string | null;
+  model_id: string | null;
+  configuration: Record<string, unknown> | null;
+  status: string;
+  experiment_type: string;
+  fingerprint: string | null;
+  duplicate_of: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  baseline?: VariantResponse | null;
+  candidate?: VariantResponse | null;
+  quality_gates: QualityGateResponse[];
+}
+
+export interface ExperimentRunResponse {
+  id: string;
+  experiment_id: string;
+  status: string;
+  baseline_run_id: string | null;
+  candidate_run_id: string | null;
+  created_by: string | null;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  error_message: string | null;
+}
+
+export interface ComparisonResponse {
+  id: string;
+  run_id: string;
+  metric_name: string;
+  baseline_value: number | null;
+  candidate_value: number | null;
+  absolute_difference: number | null;
+  relative_difference: number | null;
+  classification: string;
+  statistical_metadata: Record<string, unknown> | null;
+}
+
+export interface RegressionResponse {
+  id: string;
+  comparison_id: string;
+  metric_name: string;
+  severity: string;
+  baseline_value: number | null;
+  candidate_value: number | null;
+  threshold: number | null;
+  explanation: string | null;
+}
+
+export interface QualityGateResultResponse {
+  id: string;
+  run_id: string;
+  quality_gate_id: string;
+  metric_name: string;
+  actual_value: number | null;
+  status: string;
+}
+
+// ---- Phase 7 types ----
+export interface ServiceTokenResponse {
+  id: string;
+  project_id: string;
+  organization_id: string;
+  name: string;
+  token_prefix: string;
+  scopes: string[];
+  created_at: string;
+  expires_at: string | null;
+  revoked_at: string | null;
+  last_used_at: string | null;
+  raw_token?: string;
+}
+
+export interface CIRunResponse {
+  id: string;
+  project_id: string;
+  experiment_id: string | null;
+  experiment_run_id: string | null;
+  commit_sha: string;
+  branch: string;
+  repository: string;
+  pull_request_number: number | null;
+  pull_request_url: string | null;
+  ci_provider: string;
+  ci_run_id: string;
+  ci_job_id: string | null;
+  status: string;
+  outcome: string | null;
+  duration_seconds: number | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
+// ---- Phase 8 Observability types ----
+export interface TraceResponse {
+  id: string;
+  project_id: string;
+  organization_id: string;
+  trace_id: string;
+  environment: string;
+  service_name: string | null;
+  operation_name: string | null;
+  status: string | null;
+  duration_ms: number | null;
+  error: string | null;
+  user_id: string | null;
+  session_id: string | null;
+  deployment_version: string | null;
+  git_commit: string | null;
+  quality_score: number | null;
+  metadata: Record<string, unknown> | null;
+  start_time: string;
+  end_time: string | null;
+  created_at: string;
+}
+
+export interface SpanResponse {
+  id: string;
+  trace_id: string;
+  span_id: string;
+  parent_span_id: string | null;
+  name: string;
+  span_type: string;
+  status: string;
+  error: string | null;
+  attributes: Record<string, unknown> | null;
+  provider: string | null;
+  model: string | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  total_tokens: number | null;
+  estimated_cost: number | null;
+  temperature: number | null;
+  max_tokens: number | null;
+  error_category: string | null;
+  duration_ms: number | null;
+  start_time: string;
+  end_time: string | null;
+}
+
+export interface ModelBreakdown {
+  model: string;
+  requests: number;
+  success_rate: number | null;
+  error_rate: number | null;
+  tokens: number;
+  cost: number;
+  latency_avg: number | null;
+}
+
+export interface ProviderBreakdown {
+  provider: string;
+  requests: number;
+  success_rate: number | null;
+  error_rate: number | null;
+  tokens: number;
+  cost: number;
+  latency_avg: number | null;
+}
+
+export interface ObservabilityOverviewResponse {
+  total_requests: number;
+  success_rate: number | null;
+  error_rate: number | null;
+  errors: number;
+  total_cost: number | null;
+  total_tokens: number | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  latency_p50: number | null;
+  latency_p90: number | null;
+  latency_p95: number | null;
+  latency_p99: number | null;
+  latency_avg: number | null;
+  latency_max: number | null;
+  models: ModelBreakdown[];
+  providers: ProviderBreakdown[];
+  environments: Array<{
+    environment: string;
+    requests: number;
+    success_rate: number | null;
+    error_rate: number | null;
+    tokens: number;
+    cost: number;
+  }>;
+}
+
+export interface ObservabilityCostResponse {
+  total_cost: number | null;
+  cost_per_request: number | null;
+  cost_by_model: Array<{ model: string; cost: number }>;
+  cost_by_provider: Array<{ provider: string; cost: number }>;
+  cost_by_environment: Array<{ environment: string; cost: number }>;
+}
+
+export interface ObservabilityLatencyResponse {
+  total_requests: number;
+  latency_p50: number | null;
+  latency_p90: number | null;
+  latency_p95: number | null;
+  latency_p99: number | null;
+  latency_avg: number | null;
+  latency_max: number | null;
+}
+
+export interface TraceListResponse {
+  traces: TraceResponse[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface TraceDetailResponse {
+  trace: TraceResponse;
+  spans: SpanResponse[];
+}
+
+export interface ObservabilitySettingsResponse {
+  observability_mode: string;
+  retention_days: number | null;
+  sample_rate: number;
+  capture_errors: boolean;
+  capture_quality_signals: boolean;
+  error_bypass_sampling: boolean;
+}
+
+// ---- Phase 8 Alert types ----
+export interface AlertRuleResponse {
+  id: string;
+  project_id: string;
+  name: string;
+  metric: string;
+  operator: string;
+  threshold: number;
+  duration_seconds: number;
+  cooldown_seconds: number;
+  severity: string;
+  environment: string | null;
+  is_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AlertResponse {
+  id: string;
+  alert_rule_id: string;
+  project_id: string;
+  status: string;
+  severity: string;
+  message: string | null;
+  observed_value: number | null;
+  occurrence_count: number;
+  triggered_at: string;
+  last_seen_at: string;
+  resolved_at: string | null;
+  acknowledged_at: string | null;
+  acknowledged_by: string | null;
+  notification_status: string | null;
+  notification_error: string | null;
+  created_at: string;
+}
+
+// ---- Phase 8 Pricing types ----
+export interface PricingResponse {
+  id: string;
+  model_pattern: string;
+  provider: string;
+  input_price_per_1k: number;
+  output_price_per_1k: number;
+  currency: string;
+  effective_from: string | null;
+  effective_until: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// ---- Phase 9 Benchmarking types ----
+export interface BenchmarkSuiteResponse {
+  id: string;
+  project_id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BenchmarkVersionResponse {
+  id: string;
+  benchmark_suite_id: string;
+  version: number;
+  configuration: Record<string, any>;
+  configuration_hash: string;
+  dataset_version_id: string;
+  created_at: string;
+}
+
+export interface BenchmarkRunResponse {
+  id: string;
+  benchmark_suite_id: string;
+  benchmark_version_id: string;
+  status: string;
+  error_message: string | null;
+  reliability_score: number | null;
+  methodology_version: string;
+  configuration_hash: string;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
+export interface BenchmarkResultResponse {
+  id: string;
+  benchmark_run_id: string;
+  evaluation_run_id: string;
+  baseline_run_id: string;
+  model_id: string;
+  reliability_score: number;
+}
+
+export interface ReliabilityEvidenceResponse {
+  id: string;
+  benchmark_run_id: string;
+  benchmark_result_id: string | null;
+  metric_name: string;
+  baseline_value: number;
+  candidate_value: number;
+  absolute_change: number;
+  relative_change: number;
+  sample_size: number;
+  p_value: number | null;
+  effect_size: number | null;
+  confidence_interval_low: number | null;
+  confidence_interval_high: number | null;
+  significance: boolean;
+  confidence: string;
+}
+
+export interface FailureClusterResponse {
+  id: string;
+  benchmark_run_id: string;
+  benchmark_result_id: string | null;
+  failure_type: string;
+  error_message_pattern: string;
+  cluster_count: number;
+  cluster_percentage: number;
+  severity: string;
+}
+
+export interface RootCauseRecommendationResponse {
+  id: string;
+  benchmark_run_id: string;
+  benchmark_result_id: string | null;
+  regression_attribution: string | null;
+  root_cause_analysis: string;
+  root_cause_confidence: string;
+  recommendation: string;
+}
+
+export interface BenchmarkRunDetailResponse {
+  run: BenchmarkRunResponse;
+  results: BenchmarkResultResponse[];
+  evidences: ReliabilityEvidenceResponse[];
+  clusters: FailureClusterResponse[];
+  recommendation: RootCauseRecommendationResponse | null;
+}

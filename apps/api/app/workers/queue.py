@@ -65,8 +65,16 @@ class RedisTaskQueue:
 class InMemoryTaskQueue:
     """In-process queue for unit tests and local development without Redis."""
 
+    _shared_queue: asyncio.Queue[tuple[str, str, dict[str, Any]]] | None = None
+
+    @classmethod
+    def reset(cls) -> None:
+        cls._shared_queue = None
+
     def __init__(self) -> None:
-        self._queue: asyncio.Queue[tuple[str, str, dict[str, Any]]] = asyncio.Queue()
+        if InMemoryTaskQueue._shared_queue is None:
+            InMemoryTaskQueue._shared_queue = asyncio.Queue()
+        self._queue = InMemoryTaskQueue._shared_queue
 
     async def enqueue(self, task: str, payload: dict[str, Any]) -> str:
         job_id = str(uuid.uuid4())

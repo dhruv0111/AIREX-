@@ -4,15 +4,36 @@ from app.models.alert import Alert, AlertRule
 from app.models.audit import AuditLog
 from app.models.dataset import Dataset, DatasetVersion, TestCase
 from app.models.evaluation import EvaluationResult, EvaluationRun
-from app.models.experiment import Experiment, Prompt, PromptVersion
+from app.models.experiment import (
+    Experiment,
+    ExperimentComparison,
+    ExperimentRun,
+    ExperimentVariant,
+    Prompt,
+    PromptVersion,
+    QualityGate,
+    QualityGateResult,
+    Regression,
+)
 from app.models.generation import GeneratedCandidate, GenerationRequest
 from app.models.invocation import ModelInvocation
 from app.models.organization import Organization, OrganizationMember
 from app.models.project import Environment, Project
 from app.models.provider import Model, Provider
 from app.models.rubric import Rubric
-from app.models.trace import Trace, TraceEvent
+from app.models.pricing import ModelPricing
+from app.models.trace import Trace, Span
+from app.models.ci import CIRun, ServiceToken
 from app.models.user import User
+from app.models.benchmark import (
+    BenchmarkSuite,
+    BenchmarkVersion,
+    BenchmarkRun,
+    BenchmarkResult,
+    ReliabilityEvidence,
+    FailureCluster,
+    RootCauseRecommendation,
+)
 
 __all__ = [
     "User",
@@ -28,10 +49,17 @@ __all__ = [
     "EvaluationRun",
     "EvaluationResult",
     "Experiment",
+    "ExperimentVariant",
+    "ExperimentRun",
+    "ExperimentComparison",
+    "Regression",
+    "QualityGate",
+    "QualityGateResult",
     "Prompt",
     "PromptVersion",
     "Trace",
-    "TraceEvent",
+    "Span",
+    "ModelPricing",
     "AlertRule",
     "Alert",
     "AuditLog",
@@ -39,4 +67,13 @@ __all__ = [
     "Rubric",
     "GenerationRequest",
     "GeneratedCandidate",
+    "ServiceToken",
+    "CIRun",
+    "BenchmarkSuite",
+    "BenchmarkVersion",
+    "BenchmarkRun",
+    "BenchmarkResult",
+    "ReliabilityEvidence",
+    "FailureCluster",
+    "RootCauseRecommendation",
 ]

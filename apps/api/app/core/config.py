@@ -86,6 +86,7 @@ class Settings(BaseSettings):
     evaluation_max_concurrency: int = 5
     evaluation_timeout_seconds: int = 30
     evaluation_stale_timeout_seconds: int = 600
+    worker_concurrency: int = 10
 
     # ---- Phase 5: test generation ----
     generation_timeout_seconds: int = 60

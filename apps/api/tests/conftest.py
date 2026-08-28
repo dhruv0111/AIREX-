@@ -79,9 +79,12 @@ def anyio_backend():
 
 @pytest.fixture(autouse=True)
 def _reset_rate_limiter():
-    """Reset the process-global in-memory rate limiter between tests."""
+    """Reset the process-global in-memory rate limiter and task queue between tests."""
     from app.core.ratelimit import get_rate_limiter
+    from app.workers.queue import InMemoryTaskQueue
 
     get_rate_limiter().reset()
+    InMemoryTaskQueue.reset()
     yield
     get_rate_limiter().reset()
+    InMemoryTaskQueue.reset()

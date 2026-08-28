@@ -32,6 +32,7 @@ class Project(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     application_type: Mapped[str] = mapped_column(String(64), default="generic_llm", nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="ACTIVE", nullable=False)
     created_by: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    settings: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
 
 class Environment(UUIDPrimaryKeyMixin, TimestampMixin, Base):

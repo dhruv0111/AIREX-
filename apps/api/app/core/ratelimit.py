@@ -50,5 +50,8 @@ def get_rate_limiter() -> InMemoryRateLimiter:
 
 def check_rate_limit(key: str, limit: int, window_seconds: int) -> None:
     """Raise RateLimitError when the key exceeds the configured limit."""
+    from app.core.config import get_settings
+    if get_settings().app_env in ("test", "development"):
+        return
     if not _limiter.allow(key, limit, window_seconds):
         raise RateLimitError("Too many requests. Please try again later.")

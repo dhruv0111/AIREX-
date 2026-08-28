@@ -33,6 +33,7 @@ class EvaluationExecutionConfig(BaseModel):
 class EvaluationConfiguration(BaseModel):
     evaluators: list[EvaluatorConfig] = Field(default_factory=list, min_length=1)
     execution: EvaluationExecutionConfig = Field(default_factory=EvaluationExecutionConfig)
+    prompt_version_content: str | None = None
 
 
 class EvaluationCreate(BaseModel):

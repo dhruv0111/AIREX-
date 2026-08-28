@@ -28,6 +28,36 @@ import type {
   RubricResponse,
   TestCaseResponse,
   TokenResponse,
+  VariantCreate,
+  VariantResponse,
+  QualityGateCreate,
+  QualityGateResponse,
+  ExperimentCreate,
+  ExperimentUpdate,
+  ExperimentResponse,
+  ExperimentRunResponse,
+  ComparisonResponse,
+  RegressionResponse,
+  QualityGateResultResponse,
+  ServiceTokenResponse,
+  CIRunResponse,
+  ObservabilityOverviewResponse,
+  ObservabilityCostResponse,
+  ObservabilityLatencyResponse,
+  TraceListResponse,
+  TraceDetailResponse,
+  ObservabilitySettingsResponse,
+  AlertRuleResponse,
+  AlertResponse,
+  PricingResponse,
+  BenchmarkSuiteResponse,
+  BenchmarkVersionResponse,
+  BenchmarkRunResponse,
+  BenchmarkResultResponse,
+  ReliabilityEvidenceResponse,
+  FailureClusterResponse,
+  RootCauseRecommendationResponse,
+  BenchmarkRunDetailResponse,
 } from "@airex/shared-types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -473,4 +503,253 @@ export const api = {
       `/api/v1/generations/${generationId}/dataset-version`,
       { method: "POST", body: payload, org: true },
     ),
+
+  // Experiments (Phase 6)
+  listExperiments: (projectId: string) =>
+    request<ApiListResponse<ExperimentResponse>>(`/api/v1/projects/${projectId}/experiments`, { org: true }),
+  createExperiment: (projectId: string, payload: ExperimentCreate) =>
+    request<ApiResponse<ExperimentResponse>>(`/api/v1/projects/${projectId}/experiments`, {
+      method: "POST",
+      body: payload,
+      org: true,
+    }),
+  getExperiment: (id: string) =>
+    request<ApiResponse<ExperimentResponse>>(`/api/v1/experiments/${id}`, { org: true }),
+  updateExperiment: (id: string, payload: ExperimentUpdate) =>
+    request<ApiResponse<ExperimentResponse>>(`/api/v1/experiments/${id}`, {
+      method: "PATCH",
+      body: payload,
+      org: true,
+    }),
+  deleteExperiment: (id: string) =>
+    request<void>(`/api/v1/experiments/${id}`, { method: "DELETE", org: true }),
+  runExperiment: (id: string) =>
+    request<ApiResponse<ExperimentRunResponse>>(`/api/v1/experiments/${id}/run`, { method: "POST", org: true }),
+  cancelExperimentRun: (id: string) =>
+    request<ApiResponse<ExperimentRunResponse>>(`/api/v1/experiments/${id}/cancel`, { method: "POST", org: true }),
+  listExperimentRuns: (id: string) =>
+    request<ApiListResponse<ExperimentRunResponse>>(`/api/v1/experiments/${id}/runs`, { org: true }),
+  getExperimentResults: (id: string) =>
+    request<ApiListResponse<ComparisonResponse>>(`/api/v1/experiments/${id}/results`, { org: true }),
+  getExperimentRegressions: (id: string) =>
+    request<ApiListResponse<RegressionResponse>>(`/api/v1/experiments/${id}/regressions`, { org: true }),
+  getExperimentQualityGates: (id: string) =>
+    request<ApiListResponse<QualityGateResultResponse>>(`/api/v1/experiments/${id}/quality-gates`, { org: true }),
+
+  // CI/CD (Phase 7)
+  listServiceTokens: (projectId: string) =>
+    request<ApiListResponse<ServiceTokenResponse>>(`/api/v1/projects/${projectId}/service-tokens`, { org: true }),
+  createServiceToken: (projectId: string, payload: { name: string; scopes: string[]; expires_in_days?: number }) =>
+    request<ApiResponse<ServiceTokenResponse>>(`/api/v1/projects/${projectId}/service-tokens`, {
+      method: "POST",
+      body: payload,
+      org: true,
+    }),
+  revokeServiceToken: (tokenId: string) =>
+    request<ApiResponse<{ status: string }>>(`/api/v1/service-tokens/${tokenId}`, { method: "DELETE", org: true }),
+  rotateServiceToken: (tokenId: string) =>
+    request<ApiResponse<ServiceTokenResponse>>(`/api/v1/service-tokens/${tokenId}/rotate`, { method: "POST", org: true }),
+  listCIRuns: (projectId: string, params?: { page?: number; page_size?: number }) =>
+    request<ApiListResponse<CIRunResponse>>(
+      `/api/v1/projects/${projectId}/ci-runs?${new URLSearchParams(
+        Object.entries(params ?? {})
+          .filter(([, v]) => v !== undefined)
+          .map(([k, v]) => [k, String(v)])
+      ).toString()}`,
+      { org: true }
+    ),
+
+  // Observability (Phase 8)
+  getObservabilityOverview: (
+    projectId: string,
+    params?: { environment?: string; start_time?: string; end_time?: string },
+  ) =>
+    request<ObservabilityOverviewResponse>(
+      `/api/v1/projects/${projectId}/observability/overview?${new URLSearchParams(
+        Object.fromEntries(
+          Object.entries(params ?? {}).filter(([, v]) => v !== undefined && v !== ""),
+        ) as Record<string, string>,
+      ).toString()}`,
+      { org: true },
+    ),
+  getObservabilityModels: (
+    projectId: string,
+    params?: { environment?: string; start_time?: string; end_time?: string },
+  ) =>
+    request<{ total_requests: number; models: Array<{ model: string; requests: number; success_rate: number | null; error_rate: number | null; tokens: number; cost: number; latency_avg: number | null }> }>(
+      `/api/v1/projects/${projectId}/observability/models?${new URLSearchParams(
+        Object.fromEntries(
+          Object.entries(params ?? {}).filter(([, v]) => v !== undefined && v !== ""),
+        ) as Record<string, string>,
+      ).toString()}`,
+      { org: true },
+    ),
+  getObservabilityProviders: (
+    projectId: string,
+    params?: { environment?: string; start_time?: string; end_time?: string },
+  ) =>
+    request<{ total_requests: number; providers: Array<{ provider: string; requests: number; success_rate: number | null; error_rate: number | null; tokens: number; cost: number; latency_avg: number | null }> }>(
+      `/api/v1/projects/${projectId}/observability/providers?${new URLSearchParams(
+        Object.fromEntries(
+          Object.entries(params ?? {}).filter(([, v]) => v !== undefined && v !== ""),
+        ) as Record<string, string>,
+      ).toString()}`,
+      { org: true },
+    ),
+  getObservabilityCost: (
+    projectId: string,
+    params?: { environment?: string; start_time?: string; end_time?: string },
+  ) =>
+    request<ObservabilityCostResponse>(
+      `/api/v1/projects/${projectId}/observability/cost?${new URLSearchParams(
+        Object.fromEntries(
+          Object.entries(params ?? {}).filter(([, v]) => v !== undefined && v !== ""),
+        ) as Record<string, string>,
+      ).toString()}`,
+      { org: true },
+    ),
+  getObservabilityLatency: (
+    projectId: string,
+    params?: { environment?: string; start_time?: string; end_time?: string },
+  ) =>
+    request<ObservabilityLatencyResponse>(
+      `/api/v1/projects/${projectId}/observability/latency?${new URLSearchParams(
+        Object.fromEntries(
+          Object.entries(params ?? {}).filter(([, v]) => v !== undefined && v !== ""),
+        ) as Record<string, string>,
+      ).toString()}`,
+      { org: true },
+    ),
+  listTraces: (
+    projectId: string,
+    params?: {
+      environment?: string;
+      status?: string;
+      model?: string;
+      provider?: string;
+      trace_id?: string;
+      error_category?: string;
+      start_time?: string;
+      end_time?: string;
+      limit?: number;
+      offset?: number;
+    },
+  ) =>
+    request<TraceListResponse>(
+      `/api/v1/projects/${projectId}/observability/traces?${new URLSearchParams(
+        Object.fromEntries(
+          Object.entries(params ?? {}).filter(([, v]) => v !== undefined && v !== ""),
+        ) as Record<string, string>,
+      ).toString()}`,
+      { org: true },
+    ),
+  getTraceDetail: (traceId: string) =>
+    request<TraceDetailResponse>(`/api/v1/observability/traces/${traceId}`, { org: true }),
+  getObservabilitySettings: (projectId: string) =>
+    request<ObservabilitySettingsResponse>(`/api/v1/projects/${projectId}/observability/settings`, { org: true }),
+  updateObservabilitySettings: (
+    projectId: string,
+    payload: Partial<ObservabilitySettingsResponse>,
+  ) =>
+    request<ObservabilitySettingsResponse>(`/api/v1/projects/${projectId}/observability/settings`, {
+      method: "PUT",
+      body: payload,
+      org: true,
+    }),
+
+  // Alerts (Phase 8)
+  listAlerts: (projectId: string, params?: { status?: string }) =>
+    request<AlertResponse[]>(
+      `/api/v1/projects/${projectId}/alerts?${new URLSearchParams(
+        Object.fromEntries(
+          Object.entries(params ?? {}).filter(([, v]) => v !== undefined && v !== ""),
+        ) as Record<string, string>,
+      ).toString()}`,
+      { org: true },
+    ),
+  getAlert: (projectId: string, alertId: string) =>
+    request<AlertResponse>(`/api/v1/projects/${projectId}/alerts/${alertId}`, { org: true }),
+  acknowledgeAlert: (projectId: string, alertId: string) =>
+    request<AlertResponse>(`/api/v1/projects/${projectId}/alerts/${alertId}/ack`, {
+      method: "POST",
+      org: true,
+    }),
+  listAlertRules: (projectId: string) =>
+    request<AlertRuleResponse[]>(`/api/v1/projects/${projectId}/alert-rules`, { org: true }),
+  createAlertRule: (
+    projectId: string,
+    payload: {
+      name: string;
+      metric: string;
+      operator: string;
+      threshold: number;
+      duration_seconds?: number;
+      cooldown_seconds?: number;
+      severity?: string;
+      environment?: string;
+      is_enabled?: boolean;
+    },
+  ) =>
+    request<AlertRuleResponse>(`/api/v1/projects/${projectId}/alert-rules`, {
+      method: "POST",
+      body: payload,
+      org: true,
+    }),
+  updateAlertRule: (ruleId: string, payload: Partial<AlertRuleResponse>) =>
+    request<AlertRuleResponse>(`/api/v1/alert-rules/${ruleId}`, {
+      method: "PATCH",
+      body: payload,
+      org: true,
+    }),
+  deleteAlertRule: (ruleId: string) =>
+    request<void>(`/api/v1/alert-rules/${ruleId}`, { method: "DELETE", org: true }),
+
+  // Pricing (Phase 8)
+  listPricing: () => request<PricingResponse[]>("/api/v1/pricing", { org: true }),
+  createPricing: (payload: {
+    model_pattern: string;
+    provider: string;
+    input_price_per_1k: number;
+    output_price_per_1k: number;
+    currency?: string;
+    effective_from?: string;
+    effective_until?: string;
+  }) => request<PricingResponse>("/api/v1/pricing", { method: "POST", body: payload, org: true }),
+  updatePricing: (pricingId: string, payload: Partial<PricingResponse>) =>
+    request<PricingResponse>(`/api/v1/pricing/${pricingId}`, { method: "PATCH", body: payload, org: true }),
+  deletePricing: (pricingId: string) =>
+    request<void>(`/api/v1/pricing/${pricingId}`, { method: "DELETE", org: true }),
+
+  // Benchmarks (Phase 9)
+  createBenchmarkSuite: (
+    projectId: string,
+    payload: { name: string; description?: string; configuration: Record<string, any> },
+  ) =>
+    request<ApiResponse<BenchmarkSuiteResponse>>(`/api/v1/projects/${projectId}/benchmarks`, {
+      method: "POST",
+      body: payload,
+      org: true,
+    }),
+  listBenchmarkSuites: (projectId: string) =>
+    request<ApiResponse<BenchmarkSuiteResponse[]>>(`/api/v1/projects/${projectId}/benchmarks`, { org: true }),
+  getBenchmarkSuite: (suiteId: string) =>
+    request<ApiResponse<BenchmarkSuiteResponse>>(`/api/v1/benchmarks/${suiteId}`, { org: true }),
+  createBenchmarkVersion: (suiteId: string, payload: { configuration: Record<string, any> }) =>
+    request<ApiResponse<BenchmarkVersionResponse>>(`/api/v1/benchmarks/${suiteId}/versions`, {
+      method: "POST",
+      body: payload,
+      org: true,
+    }),
+  listBenchmarkVersions: (suiteId: string) =>
+    request<ApiResponse<BenchmarkVersionResponse[]>>(`/api/v1/benchmarks/${suiteId}/versions`, { org: true }),
+  triggerBenchmarkRun: (suiteId: string, payload: { benchmark_version_id?: string }) =>
+    request<ApiResponse<BenchmarkRunResponse>>(`/api/v1/benchmarks/${suiteId}/runs`, {
+      method: "POST",
+      body: payload,
+      org: true,
+    }),
+  listBenchmarkRuns: (suiteId: string) =>
+    request<ApiResponse<BenchmarkRunResponse[]>>(`/api/v1/benchmarks/${suiteId}/runs`, { org: true }),
+  getBenchmarkRunDetail: (runId: string) =>
+    request<ApiResponse<BenchmarkRunDetailResponse>>(`/api/v1/benchmarks/runs/${runId}`, { org: true }),
 };

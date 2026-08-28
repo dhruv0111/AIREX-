@@ -161,6 +161,13 @@ class EvaluationRunner:
                 return {"status": "FAILED"}
 
     async def _execute(self, session: AsyncSession, run, start: float) -> dict[str, Any]:
+        await session.refresh(run)
+        
+        run_db_id = run.id
+        created_by_id = run.created_by
+        project_id = run.project_id
+        dataset_version_id = run.dataset_version_id
+
         repo = EvaluationRepository(session)
         versions = DatasetVersionRepository(session)
         cases_repo = TestCaseRepository(session)
@@ -169,14 +176,14 @@ class EvaluationRunner:
         projects = ProjectRepository(session)
 
         version = (
-            await versions.get_by_id(run.dataset_version_id) if run.dataset_version_id else None
+            await versions.get_by_id(dataset_version_id) if dataset_version_id else None
         )
         if version is None:
             raise RuntimeError("Dataset version not found.")
         test_cases = await cases_repo.all_for_version(version.id)
 
         model_config = run.model_config or {}
-        project = await projects.get_by_id(run.project_id)
+        project = await projects.get_by_id(project_id)
         org_id = project.organization_id if project is not None else None
         provider = None
         if model_config.get("provider_id") and org_id is not None:
@@ -215,9 +222,9 @@ class EvaluationRunner:
             await AuditRepository(session).record(
                 action="LLM_JUDGE_EVALUATION_STARTED",
                 organization_id=org_id,
-                user_id=run.created_by,
+                user_id=created_by_id,
                 resource_type="evaluation_run",
-                resource_id=run.id,
+                resource_id=run_db_id,
             )
 
         outcomes = await self._execute_test_cases(
@@ -236,7 +243,7 @@ class EvaluationRunner:
         persisted = []
         for outcome in outcomes:
             created = await results_repo.create_result(
-                run_id=run.id,
+                run_id=run_db_id,
                 test_case_id=outcome["test_case_id"],
                 actual_output=outcome["actual_output"],
                 score=outcome["score"],
@@ -260,7 +267,7 @@ class EvaluationRunner:
             if created is not None:
                 persisted.append(created)
 
-        rows = await results_repo.all_for_run(run.id)
+        rows = await results_repo.all_for_run(run_db_id)
         metrics = compute_run_metrics(rows)
         metrics["evaluators"] = compute_evaluator_metrics(rows)
 
@@ -277,9 +284,9 @@ class EvaluationRunner:
         await AuditRepository(session).record(
             action="EVALUATION_COMPLETED",
             organization_id=None,
-            user_id=run.created_by,
+            user_id=created_by_id,
             resource_type="evaluation_run",
-            resource_id=run.id,
+            resource_id=run_db_id,
             metadata={"total": completed, "passed": passed, "failed": failed, "errors": errors},
         )
         if judge_configured:
@@ -289,9 +296,9 @@ class EvaluationRunner:
             await AuditRepository(session).record(
                 action=judge_action,
                 organization_id=org_id,
-                user_id=run.created_by,
+                user_id=created_by_id,
                 resource_type="evaluation_run",
-                resource_id=run.id,
+                resource_id=run_db_id,
             )
         evaluation_runs_total.labels(status="COMPLETED").inc()
         evaluation_tests_total.inc(completed)
@@ -360,9 +367,25 @@ class EvaluationRunner:
         timeout = float(
             execution.get("timeout_seconds") or self._settings.evaluation_timeout_seconds
         )
+        prompt_content = (run.configuration or {}).get("prompt_version_content")
+        if prompt_content:
+            if "{{input}}" in prompt_content:
+                user_content = prompt_content.replace("{{input}}", test_case.input)
+                messages = [{"role": "user", "content": user_content}]
+            elif "{{ input }}" in prompt_content:
+                user_content = prompt_content.replace("{{ input }}", test_case.input)
+                messages = [{"role": "user", "content": user_content}]
+            else:
+                messages = [
+                    {"role": "system", "content": prompt_content},
+                    {"role": "user", "content": test_case.input},
+                ]
+        else:
+            messages = [{"role": "user", "content": test_case.input}]
+
         request = ModelRequest(
             model=model_config.get("model_identifier") or "",
-            messages=[{"role": "user", "content": test_case.input}],
+            messages=messages,
             temperature=model_config.get("temperature"),
             max_tokens=model_config.get("max_tokens"),
             top_p=model_config.get("top_p"),

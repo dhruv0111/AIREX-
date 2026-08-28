@@ -5,6 +5,8 @@ AIREX is a production-grade platform for testing, evaluating, monitoring, and be
 > **Phase 0 — Foundation & Architecture.** Implements the monorepo foundation: backend (FastAPI), frontend (Next.js), PostgreSQL, Redis, worker, authentication, organizations, projects, multi-tenancy, health checks, metrics, migrations, seed, CLI, tests, CI, and documentation.
 >
 > **Phase 1 — AI Provider & Model Gateway.** Now implemented on top of Phase 0: environment management (one per type), AI provider management with encrypted API-key storage and rotation, model management, and a Model Gateway with provider adapters (Local/OpenAI/Anthropic/Gemini), connection testing, model invocation, normalized error taxonomy, retry with backoff, timeouts, invocation telemetry, and Prometheus model metrics. Later phases (datasets, evaluation engine, RAG, test generation, experiments, observability, research) build on this foundation.
+>
+> **Phase 8 — Production AI Observability & Alerting.** Now implemented: batched trace/span ingestion, async queue processing, deduplication, sampling, privacy modes (`METADATA_ONLY` / `HASHED_CONTENT` / `FULL_CONTENT`), retention policies, a versioned model pricing cost engine, an observability dashboard, trace explorer + trace detail with span hierarchy, model/provider/cost/latency dashboards, quality signals, an alert engine (threshold → trigger → deduplicate → resolve) with HMAC-signed webhook notifications, RBAC, multi-tenant isolation, audit events, Prometheus metrics, and the official Python SDK (`packages/airex-python`).
 
 ---
 
@@ -185,6 +187,82 @@ airex/
 └── .github/workflows/  # CI + E2E pipelines
 ```
 
+## Python SDK (Phase 8)
+
+Install the official observability SDK:
+
+```bash
+pip install ./packages/airex-python
+```
+
+Quick start — instrument a production AI request without ever blocking your application:
+
+```python
+from airex import AirexClient
+
+client = AirexClient(project_id="<project-id>", api_token="<service-token>")
+
+with client.trace("chat-completion") as trace:
+    with client.observe_llm(model="gpt-4o", provider="openai") as span:
+        span.input_tokens = 1000
+        span.output_tokens = 500
+        # ... your model call ...
+```
+
+- The SDK batches events, flushes on size/interval/shutdown, and never blocks production traffic (bounded queue with drop-on-overflow).
+- If AIREX is unreachable, observability fails silently — your AI application keeps running (`AIREX_SDK_DISABLED=true` disables the SDK entirely).
+- No prompts or responses are sent by default; the SDK only records trace/span metadata and token counts.
+
+## Observability Configuration (Phase 8)
+
+Per-project privacy, retention, and sampling settings are privacy-safe by default:
+
+```text
+observability_mode = METADATA_ONLY   # METADATA_ONLY | HASHED_CONTENT | FULL_CONTENT
+retention_days      = <unset>        # e.g. 7 / 30 / 90 / 180
+sample_rate         = 1.0            # 0.0..1.0 (errors can bypass sampling)
+capture_errors      = true
+capture_quality_signals = true
+```
+
+Manage them via the UI (`/projects/[id]/observability`) or the API:
+
+```bash
+curl -X PUT http://localhost:8000/api/v1/projects/<project-id>/observability/settings \
+  -H "Authorization: Bearer <token>" -H "X-Organization-Id: <org-id>" \
+  -H "Content-Type: application/json" \
+  -d '{"observability_mode":"HASHED_CONTENT","retention_days":30,"sample_rate":0.5}'
+```
+
+## Ingestion API (Phase 8)
+
+Send deterministic trace + span batches (`202 Accepted` → async worker → PostgreSQL):
+
+```bash
+curl -X POST http://localhost:8000/api/v1/observability/ingest \
+  -H "Authorization: Bearer <token>" -H "X-Project-Id: <project-id>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "traces": [{"trace_id":"trace_1","environment":"production","start_time":"2026-01-01T00:00:00Z","status":"SUCCESS"}],
+    "spans": [{"trace_id":"trace_1","span_id":"span_1","name":"model-call","span_type":"LLM",
+               "provider":"openai","model":"gpt-4o","input_tokens":1000,"output_tokens":500,
+               "start_time":"2026-01-01T00:00:00Z","status":"SUCCESS"}]
+  }'
+```
+
+## Dashboard & Trace Explorer (Phase 8)
+
+- **Dashboard** `/projects/[id]/observability` — requests, success/error rate, latency (p50/p90/p95/p99), tokens, cost, and model/provider breakdowns with selectable time ranges.
+- **Trace Explorer** `/projects/[id]/observability/traces` — paginated search by status, provider, trace ID, and time range.
+- **Trace Detail** `/projects/[id]/observability/traces/[traceId]` — span hierarchy, LLM token usage, and estimated cost.
+- Empty states show *"No observability data yet"* — real `N/A` for missing cost/latency, never fake `$0`.
+
+## Alerts (Phase 8)
+
+- **Alerts** `/projects/[id]/alerts` — active/history lists, severity, occurrence counts, and acknowledgement.
+- **Rules** `/projects/[id]/alerts/rules` — create/edit/disable/delete threshold rules (`error_rate`, `latency_p95`, `cost`, `token_usage`, `request_rate`, `quality_score`).
+- Alerts are produced by the real alert engine (worker, ~60s cadence): threshold crossing triggers, repeated violations deduplicate into one incident, recovery resolves it, and optional HMAC-signed webhook notifications are dispatched.
+
 ## CLI
 
 ```bash
@@ -216,6 +294,6 @@ python -m app.cli project list --organization <org-id>
 
 ## Roadmap
 
-Phase 0 (this) → Phase 1 (environments, providers, model gateway) → Phase 2 (datasets, versioning, test cases) → Phase 3 (evaluation engine, metrics, semantics) → Phase 4 (RAG) → Phase 5 (test generation, safety) → Phase 6 (experiments, regression, quality gates) → Phase 7 (CI/CD, CLI) → Phase 8 (observability, alerts) → Phase 9 (RCA, human review) → Phase 10 (research workspace) → Phase 11 (AWS/K8s) → Phase 12 (portfolio).
+Phase 0 (this) → Phase 1 (environments, providers, model gateway) → Phase 2 (datasets, versioning, test cases) → Phase 3 (evaluation engine, metrics, semantics) → Phase 4 (RAG) → Phase 5 (test generation, safety) → Phase 6 (experiments, regression, quality gates) → Phase 7 (CI/CD, CLI) → Phase 8 (observability, alerts — complete) → Phase 9 (RCA, human review) → Phase 10 (research workspace) → Phase 11 (AWS/K8s) → Phase 12 (portfolio).
 
 See [`docs/PRD_ANALYSIS/AMBIGUITY_REGISTER.md`](docs/PRD_ANALYSIS/AMBIGUITY_REGISTER.md) and [`docs/ARCHITECTURE/ARCHITECTURE_DECISIONS.md`](docs/ARCHITECTURE/ARCHITECTURE_DECISIONS.md) for open assumptions to confirm with the product owner.

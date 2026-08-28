@@ -7,9 +7,10 @@ const PASSWORD = "StrongPassword123!";
 const PROJECT_NAME = `E2E Phase1 ${Date.now()}`;
 
 async function registerAndCreateProject(page: Page): Promise<void> {
+  const uniqueEmail = `e2e-phase1-${Date.now()}-${Math.random().toString(36).substring(2, 7)}@example.com`;
   await page.goto("/register");
   await page.getByLabel("Name").fill("Phase1 User");
-  await page.getByLabel("Email").fill(EMAIL);
+  await page.getByLabel("Email").fill(uniqueEmail);
   await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
   await page.getByLabel("Confirm Password").fill(PASSWORD);
   await page.getByRole("button", { name: "Create account" }).click();

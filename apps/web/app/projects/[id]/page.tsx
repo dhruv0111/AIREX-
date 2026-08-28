@@ -79,6 +79,42 @@ export default function ProjectDetailPage() {
             >
               Generations
             </Link>
+            <Link
+              href={`/projects/${params.id}/experiments`}
+              className="rounded-md border border-slate-200 px-3 py-1.5 text-slate-600 hover:border-brand hover:text-brand"
+            >
+              Experiments
+            </Link>
+            <Link
+              href={`/projects/${params.id}/ci-runs`}
+              className="rounded-md border border-slate-200 px-3 py-1.5 text-slate-600 hover:border-brand hover:text-brand"
+            >
+              CI History
+            </Link>
+            <Link
+              href={`/projects/${params.id}/settings/ci`}
+              className="rounded-md border border-slate-200 px-3 py-1.5 text-slate-600 hover:border-brand hover:text-brand"
+            >
+              CI Settings
+            </Link>
+            <Link
+              href={`/projects/${params.id}/observability`}
+              className="rounded-md border border-slate-200 px-3 py-1.5 text-slate-600 hover:border-brand hover:text-brand"
+            >
+              Observability
+            </Link>
+            <Link
+              href={`/projects/${params.id}/alerts`}
+              className="rounded-md border border-slate-200 px-3 py-1.5 text-slate-600 hover:border-brand hover:text-brand"
+            >
+              Alerts
+            </Link>
+            <Link
+              href={`/projects/${params.id}/benchmarks`}
+              className="rounded-md border border-slate-200 px-3 py-1.5 text-slate-600 hover:border-brand hover:text-brand"
+            >
+              Benchmarks
+            </Link>
           </nav>
           <div className="grid gap-6 md:grid-cols-2">
             <Card title="Details">

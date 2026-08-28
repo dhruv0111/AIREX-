@@ -9,13 +9,19 @@ from app.api.v1 import (
     datasets,
     environments,
     evaluations,
+    experiments,
     generations,
     models,
     organizations,
+    pricing,
     projects,
     providers,
     rubrics,
     stubs,
+    ci,
+    observability,
+    alerts,
+    benchmarks,
 )
 
 router = APIRouter(prefix="/api/v1")
@@ -29,6 +35,9 @@ router.include_router(datasets.router)
 router.include_router(evaluations.router)
 router.include_router(rubrics.router)
 router.include_router(generations.router)
-
-# Phase 4+ stubs (501 NOT_IMPLEMENTED) — module structure only.
-router.include_router(stubs.experiments_router)
+router.include_router(experiments.router)
+router.include_router(ci.router)
+router.include_router(observability.router)
+router.include_router(alerts.router)
+router.include_router(pricing.router)
+router.include_router(benchmarks.router)
