@@ -37,7 +37,16 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    if connection.dialect.name == "sqlite":
+        from alembic.ddl.sqlite import SQLiteImpl
+        SQLiteImpl.add_constraint = lambda self, const: None
+        SQLiteImpl.drop_constraint = lambda self, const: None
+
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        render_as_batch=True,
+    )
     with context.begin_transaction():
         context.run_migrations()
 

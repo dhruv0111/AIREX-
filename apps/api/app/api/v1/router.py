@@ -17,11 +17,17 @@ from app.api.v1 import (
     projects,
     providers,
     rubrics,
-    stubs,
     ci,
     observability,
     alerts,
     benchmarks,
+    intelligence,
+    agents,
+    system,
+    identity,
+    teams,
+    governance,
+    compliance,
 )
 
 router = APIRouter(prefix="/api/v1")
@@ -41,3 +47,10 @@ router.include_router(observability.router)
 router.include_router(alerts.router)
 router.include_router(pricing.router)
 router.include_router(benchmarks.router)
+router.include_router(intelligence.router)
+router.include_router(agents.router)
+router.include_router(system.router)
+router.include_router(identity.router)
+router.include_router(teams.router)
+router.include_router(governance.router)
+router.include_router(compliance.router)

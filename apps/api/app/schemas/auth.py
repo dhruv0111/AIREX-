@@ -1,11 +1,11 @@
-"""Authentication schemas (spec §33)."""
+"""Authentication schemas (spec §33, Phase 12)."""
 
 from __future__ import annotations
 
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
 class RegisterRequest(BaseModel):
@@ -16,13 +16,19 @@ class RegisterRequest(BaseModel):
     @field_validator("password")
     @classmethod
     def _password_strength(cls, v: str) -> str:
-        # AT-004/AT-007: basic strength guard; hashing is done in the service.
+        # AT-004/AT-007 / Phase 12: strong password guard
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters long.")
         return v
 
 
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=1, max_length=128)
+
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
 
 
 class TokenResponse(BaseModel):
@@ -38,6 +44,7 @@ class UserResponse(BaseModel):
     name: str
     is_active: bool
     email_verified: bool
+    is_superuser: bool = False
     created_at: datetime
 
 
@@ -49,3 +56,15 @@ class OrganizationMembership(BaseModel):
 class MeResponse(BaseModel):
     user: UserResponse
     memberships: list[OrganizationMembership]
+
+
+class SessionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    device_info: str | None = None
+    ip_address: str | None = None
+    is_revoked: bool
+    created_at: datetime
+    expires_at: datetime
+    last_used_at: datetime

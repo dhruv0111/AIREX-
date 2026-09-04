@@ -2,6 +2,14 @@
 .env
 .env.*
 !.env.example
+!.env.free.example
+*.pem
+*.key
+*.pub
+id_rsa*
+id_ed25519*
+secrets_live.yaml
+
 
 # Python
 __pycache__/

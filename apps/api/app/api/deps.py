@@ -252,3 +252,50 @@ async def get_active_organization(
         raise ValidationFailure("Multiple organizations found. Set the X-Organization-Id header.")
     organization_id_ctx.set(str(memberships[0].id))
     return memberships[0].id
+
+
+async def get_project_role(
+    project_id: UUID,
+    request: Request,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> Role:
+    """Resolve user's effective project role enforcing DIRECT > TEAM > ORG > NO_ACCESS."""
+    from app.core.permissions import Role, resolve_user_project_access
+    from app.models.project import Project
+
+    if getattr(request.state, "is_service_token", False):
+        token_project_id = getattr(request.state, "service_token_project_id", None)
+        if token_project_id and token_project_id != project_id:
+            raise ForbiddenError("Service token project boundary mismatch.")
+        return Role.ADMIN
+
+    project = await session.get(Project, project_id)
+    if not project:
+        raise NotFoundError("Project not found.")
+
+    org_hdr = request.headers.get("X-Organization-Id")
+    if org_hdr:
+        try:
+            if UUID(org_hdr) != project.organization_id:
+                raise ForbiddenError("Project does not belong to active organization.")
+        except ValueError:
+            pass
+
+    role, access_type = await resolve_user_project_access(session, user.id, project_id, project.organization_id)
+    if role is None:
+        raise ForbiddenError("You do not have access to this project.")
+    return role
+
+
+def require_project_capability(capability: str):
+    """Dependency enforcing a specific capability on the resolved project role."""
+    async def _dependency(
+        role: Role = Depends(get_project_role),
+    ) -> Role:
+        from app.core.permissions import require_capability
+        require_capability(role, capability)
+        return role
+
+    return _dependency
+

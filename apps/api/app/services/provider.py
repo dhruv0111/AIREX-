@@ -246,16 +246,18 @@ class ProviderService:
         return self._to_response(provider)
 
     def _to_response(self, provider) -> ProviderResponse:
+        masked = None
+        if provider.encrypted_credentials:
+            try:
+                masked = mask_secret(decrypt_credentials(provider.encrypted_credentials))
+            except Exception:
+                masked = "****************"
         return ProviderResponse(
             id=provider.id,
             organization_id=provider.organization_id,
             provider_type=provider.provider_type,
             name=provider.name,
-            masked_key=(
-                mask_secret(decrypt_credentials(provider.encrypted_credentials))
-                if provider.encrypted_credentials
-                else None
-            ),
+            masked_key=masked,
             base_url=provider.base_url,
             status=provider.status,
             last_connection_status=provider.last_connection_status,

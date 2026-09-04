@@ -9,6 +9,9 @@ import { AppShell } from "@/components/AppShell";
 import { Alert } from "@/components/ui/Alert";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { StatusBadge, Badge } from "@/components/ui/Badge";
+import { Input, Select } from "@/components/ui/Input";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/Table";
 
 const TIME_RANGES = [
   { key: "1h", label: "Last hour", hours: 1 },
@@ -18,20 +21,6 @@ const TIME_RANGES = [
 ] as const;
 
 const PAGE_SIZE = 20;
-
-const STATUS_COLORS: Record<string, string> = {
-  SUCCESS: "bg-green-100 text-green-800",
-  ERROR: "bg-red-100 text-red-800",
-  TIMEOUT: "bg-amber-100 text-amber-800",
-  CANCELLED: "bg-slate-100 text-slate-700",
-  RATE_LIMITED: "bg-orange-100 text-orange-800",
-};
-
-function statusBadge(status: string | null) {
-  if (!status) return <span className="text-slate-400">—</span>;
-  const cls = STATUS_COLORS[status] ?? "bg-slate-100 text-slate-700";
-  return <span className={`rounded px-2 py-0.5 text-xs font-semibold ${cls}`}>{status}</span>;
-}
 
 export default function TraceExplorerPage() {
   const params = useParams<{ id: string }>();
@@ -66,140 +55,148 @@ export default function TraceExplorerPage() {
 
   return (
     <AppShell>
-      <div className="flex flex-col gap-6">
-        <div>
-          <Link href={`/projects/${projectId}/observability`} className="text-sm text-brand hover:underline">
-            ← Observability
-          </Link>
-          <h1 className="mt-2 text-2xl font-bold text-slate-900">Trace Explorer</h1>
-          <p className="text-sm text-slate-500">Search and inspect production AI traces.</p>
+      <div className="space-y-6" data-testid="trace-explorer-view">
+        {/* Header */}
+        <div className="border-b border-slate-200 pb-5">
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 mb-1">
+            <Link href={`/projects/${projectId}/observability`} className="hover:text-slate-900 transition">
+              ← Back to Observability
+            </Link>
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+            Distributed Trace Explorer
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Inspect individual LLM spans, token latencies, error stacks, and execution steps.
+          </p>
         </div>
 
-        {/* Filters */}
-        <Card>
-          <div className="flex flex-wrap items-end gap-3">
+        {/* Filter Toolbar */}
+        <Card className="shadow-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
-              <label className="block text-xs font-semibold uppercase text-slate-500">Time range</label>
-              <select
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Time Range</label>
+              <Select
                 aria-label="Time range"
                 value={range}
                 onChange={(e) => {
                   setRange(e.target.value as typeof range);
                   setOffset(0);
                 }}
-                className="mt-1 rounded-md border border-slate-300 px-3 py-1.5 text-sm"
               >
                 {TIME_RANGES.map((r) => (
                   <option key={r.key} value={r.key}>{r.label}</option>
                 ))}
-              </select>
+              </Select>
             </div>
+
             <div>
-              <label className="block text-xs font-semibold uppercase text-slate-500">Status</label>
-              <select
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Execution Status</label>
+              <Select
                 aria-label="Status"
                 value={status}
                 onChange={(e) => { setStatus(e.target.value); setOffset(0); }}
-                className="mt-1 rounded-md border border-slate-300 px-3 py-1.5 text-sm"
               >
-                <option value="">All</option>
+                <option value="">All Statuses</option>
                 <option value="SUCCESS">SUCCESS</option>
                 <option value="ERROR">ERROR</option>
                 <option value="TIMEOUT">TIMEOUT</option>
                 <option value="CANCELLED">CANCELLED</option>
                 <option value="RATE_LIMITED">RATE_LIMITED</option>
-              </select>
+              </Select>
             </div>
+
             <div>
-              <label className="block text-xs font-semibold uppercase text-slate-500">Provider</label>
-              <input
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Provider Filter</label>
+              <Input
                 aria-label="Provider"
                 value={provider}
                 onChange={(e) => { setProvider(e.target.value); setOffset(0); }}
-                placeholder="e.g. openai"
-                className="mt-1 rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+                placeholder="e.g. openai, local"
               />
             </div>
+
             <div>
-              <label className="block text-xs font-semibold uppercase text-slate-500">Trace ID</label>
-              <input
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Trace ID</label>
+              <Input
                 aria-label="Trace ID"
                 value={traceId}
                 onChange={(e) => { setTraceId(e.target.value); setOffset(0); }}
                 placeholder="trace_…"
-                className="mt-1 rounded-md border border-slate-300 px-3 py-1.5 font-mono text-sm"
+                className="font-mono text-xs"
               />
             </div>
           </div>
         </Card>
 
         {query.isLoading ? (
-          <Card><p className="text-sm text-slate-400">Loading traces…</p></Card>
+          <div className="p-8 text-center text-slate-400">Loading traces…</div>
         ) : query.isError ? (
-          <Card><Alert kind="error">Unable to load observability data. Try again.</Alert></Card>
+          <Alert kind="error">Unable to load observability traces. Check API connection.</Alert>
         ) : traces.length === 0 ? (
-          <Card>
-            <p className="text-sm text-slate-500">
-              No observability data yet. Install the AIREX SDK or send events to the ingestion API.
+          <Card className="shadow-sm">
+            <p className="text-sm text-slate-500 py-8 text-center">
+              No traces recorded yet for this project and time window.
             </p>
           </Card>
         ) : (
-          <Card>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-slate-500">
-                    <th className="py-2 pr-4">Trace ID</th>
-                    <th className="py-2 pr-4">Operation</th>
-                    <th className="py-2 pr-4">Service</th>
-                    <th className="py-2 pr-4">Environment</th>
-                    <th className="py-2 pr-4">Status</th>
-                    <th className="py-2 pr-4">Duration</th>
-                    <th className="py-2 pr-4">Quality</th>
-                    <th className="py-2">Started</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {traces.map((t) => (
-                    <tr key={t.id} className="border-b hover:bg-slate-50">
-                      <td className="py-3 pr-4">
-                        <Link
-                          href={`/projects/${projectId}/observability/traces/${t.trace_id}`}
-                          className="font-mono text-brand hover:underline"
-                        >
-                          {t.trace_id}
-                        </Link>
-                      </td>
-                      <td className="py-3 pr-4 text-slate-800">{t.operation_name ?? "—"}</td>
-                      <td className="py-3 pr-4 text-slate-600">{t.service_name ?? "—"}</td>
-                      <td className="py-3 pr-4 text-slate-600">{t.environment}</td>
-                      <td className="py-3 pr-4">{statusBadge(t.status)}</td>
-                      <td className="py-3 pr-4 text-slate-600">
-                        {t.duration_ms != null ? `${t.duration_ms.toFixed(0)}ms` : "—"}
-                      </td>
-                      <td className="py-3 pr-4 text-slate-600">
-                        {t.quality_score != null ? t.quality_score.toFixed(2) : "—"}
-                      </td>
-                      <td className="py-3 text-slate-500">{new Date(t.start_time).toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <Card title={`Recorded Traces (${total})`} className="shadow-sm">
+            <Table>
+              <TableHeader>
+                <tr>
+                  <TableHead>Trace ID</TableHead>
+                  <TableHead>Operation</TableHead>
+                  <TableHead>Service</TableHead>
+                  <TableHead>Environment</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Duration</TableHead>
+                  <TableHead>Quality Score</TableHead>
+                  <TableHead className="text-right">Timestamp</TableHead>
+                </tr>
+              </TableHeader>
+              <TableBody>
+                {traces.map((t) => (
+                  <TableRow key={t.id}>
+                    <TableCell className="font-mono text-xs font-semibold">
+                      <span className="text-brand-600 hover:underline cursor-pointer">
+                        {t.trace_id.slice(0, 16)}…
+                      </span>
+                    </TableCell>
+                    <TableCell className="font-semibold text-slate-800 text-xs">{t.operation_name ?? "—"}</TableCell>
+                    <TableCell className="text-slate-600 text-xs">{t.service_name ?? "—"}</TableCell>
+                    <TableCell>
+                      <Badge variant="neutral">{t.environment}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={t.status} />
+                    </TableCell>
+                    <TableCell className="font-mono text-xs text-slate-600">
+                      {t.duration_ms != null ? `${t.duration_ms.toFixed(0)}ms` : "—"}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs text-slate-800">
+                      {t.quality_score != null ? t.quality_score.toFixed(2) : "—"}
+                    </TableCell>
+                    <TableCell className="text-xs text-slate-500 font-mono text-right">
+                      {new Date(t.start_time).toLocaleString()}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
 
-            {totalPages > 1 ? (
-              <div className="mt-4 flex items-center justify-between border-t pt-4">
-                <Button variant="secondary" onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))} disabled={offset === 0}>
+            {totalPages > 1 && (
+              <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4 text-xs">
+                <Button variant="secondary" size="sm" onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))} disabled={offset === 0}>
                   Previous
                 </Button>
-                <span className="text-xs text-slate-500">
-                  Page {Math.floor(offset / PAGE_SIZE) + 1} of {totalPages} · {total} traces
+                <span className="text-slate-500">
+                  Page {Math.floor(offset / PAGE_SIZE) + 1} of {totalPages} ({total} traces)
                 </span>
-                <Button variant="secondary" onClick={() => setOffset((o) => o + PAGE_SIZE)} disabled={offset + PAGE_SIZE >= total}>
+                <Button variant="secondary" size="sm" onClick={() => setOffset((o) => o + PAGE_SIZE)} disabled={offset + PAGE_SIZE >= total}>
                   Next
                 </Button>
               </div>
-            ) : null}
+            )}
           </Card>
         )}
       </div>

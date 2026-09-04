@@ -35,8 +35,17 @@ def validate_judge_response(
     Returns a normalized dict with ``criteria``, ``overall_score``, ``passed``,
     ``confidence`` and ``reasoning``.
     """
+    cleaned = (raw or "").strip()
+    if cleaned.startswith("```"):
+        lines = cleaned.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip().startswith("```"):
+            lines = lines[:-1]
+        cleaned = "\n".join(lines).strip()
+
     try:
-        data = json.loads(raw)
+        data = json.loads(cleaned)
     except (json.JSONDecodeError, TypeError) as exc:
         raise JudgeValidationError(f"Judge response is not valid JSON: {exc}") from exc
 

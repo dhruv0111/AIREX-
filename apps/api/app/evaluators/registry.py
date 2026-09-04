@@ -20,6 +20,7 @@ from app.evaluators.deterministic import (
     LengthEvaluator,
     NumericMatchEvaluator,
     RegexEvaluator,
+    SafetyRefusalEvaluator,
 )
 from app.judge.llm_judge import LLMJudgeEvaluator
 
@@ -54,6 +55,7 @@ def default_registry() -> EvaluatorRegistry:
         JsonMatchEvaluator,
         NumericMatchEvaluator,
         LengthEvaluator,
+        SafetyRefusalEvaluator,
         LLMJudgeEvaluator,
     ):
         registry.register(cls)

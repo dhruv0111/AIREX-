@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiClientError } from "@airex/api-client";
@@ -8,11 +9,16 @@ import { AppShell } from "@/components/AppShell";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { FormField, Input, Select } from "@/components/ui/Input";
+import { Badge, StatusBadge } from "@/components/ui/Badge";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/Table";
 
 const TYPES = ["LOCAL", "OPENAI", "ANTHROPIC", "GOOGLE"];
 
 export default function ProvidersPage() {
   const params = useParams<{ id: string }>();
+  const projectId = params.id;
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [providerType, setProviderType] = useState("LOCAL");
@@ -35,8 +41,6 @@ export default function ProvidersPage() {
 
   const testMutation = useMutation({
     mutationFn: (id: string) => api.testProvider(id),
-    // Refresh the providers list after a connection test so the updated
-    // last_connection_status (e.g. CONNECTED) is fetched and rendered.
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["providers"] }),
     onError: (e) => setError(e instanceof ApiClientError ? e.message : "Connection test failed"),
   });
@@ -46,94 +50,162 @@ export default function ProvidersPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["providers"] }),
   });
 
+  const providerList = providers.data?.data ?? [];
+
   return (
     <AppShell>
-      <h1 className="mb-6 text-2xl font-bold text-slate-900">Providers</h1>
-      {error ? <Alert kind="error">{error}</Alert> : null}
-
-      <Card title="Add provider" className="mb-6">
-        <div className="flex flex-col gap-3 md:flex-row">
-          <input
-            aria-label="Provider name"
-            placeholder="Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="flex-1 rounded-md border border-slate-300 px-3 py-2"
-          />
-          <select
-            aria-label="Provider type"
-            value={providerType}
-            onChange={(e) => setProviderType(e.target.value)}
-            className="rounded-md border border-slate-300 px-3 py-2"
-          >
-            {TYPES.map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
-          {providerType !== "LOCAL" ? (
-            <input
-              type="password"
-              aria-label="API key"
-              placeholder="API key"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              className="flex-1 rounded-md border border-slate-300 px-3 py-2"
-            />
-          ) : null}
-          <Button onClick={() => createMutation.mutate()} disabled={createMutation.isPending || !name}>
-            Add provider
-          </Button>
+      <div className="space-y-6" data-testid="providers-view">
+        {/* Navigation Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 pb-5">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 mb-1">
+              <Link href={`/projects/${projectId}`} className="hover:text-slate-900 transition">
+                ← Back to Project
+              </Link>
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+              AI Providers & API Connections
+            </h1>
+            <p className="mt-1 text-sm text-slate-500">
+              Connect external AI model providers or local deterministic adapters. API keys are encrypted at rest with AES-256.
+            </p>
+          </div>
         </div>
-      </Card>
 
-      {providers.isLoading ? (
-        <Card><p className="text-sm text-slate-400">Loading providers…</p></Card>
-      ) : providers.isError ? (
-        <Card><Alert kind="error">{(providers.error as Error).message}</Alert></Card>
-      ) : !providers.data?.data.length ? (
-        <Card><p className="text-sm text-slate-500">No providers yet. Add one above.</p></Card>
-      ) : (
-        <Card>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b text-left text-slate-500">
-                <th className="py-2 pr-4">Name</th>
-                <th className="py-2 pr-4">Type</th>
-                <th className="py-2 pr-4">Key</th>
-                <th className="py-2 pr-4">Status</th>
-                <th className="py-2 pr-4">Connection</th>
-                <th className="py-2">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {providers.data.data.map((p) => (
-                <tr key={p.id} className="border-b">
-                  <td className="py-2 pr-4">{p.name}</td>
-                  <td className="py-2 pr-4">{p.provider_type}</td>
-                  <td className="py-2 pr-4 text-slate-400">{p.masked_key ?? "—"}</td>
-                  <td className="py-2 pr-4">{p.status}</td>
-                  <td className="py-2 pr-4">{testMutation.isPending ? "Testing…" : p.last_connection_status ?? "—"}</td>
-                  <td className="py-2">
-                    <div className="flex gap-2">
-                      <Button variant="secondary" onClick={() => testMutation.mutate(p.id)}>
-                        Test
-                      </Button>
-                      <Button
-                        variant="danger"
-                        onClick={() => {
-                          if (confirm(`Delete provider ${p.name}?`)) deleteMutation.mutate(p.id);
-                        }}
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {error ? <Alert kind="error">{error}</Alert> : null}
+
+        {/* Add Provider Card */}
+        <Card title="Add AI Provider" subtitle="Configure a new LLM provider connection" className="shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <FormField label="Provider Name" htmlFor="pname" required>
+              <Input
+                id="pname"
+                aria-label="Provider name"
+                placeholder="e.g. Local E2E Adapter or OpenAI Prod"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                data-testid="provider-name-input"
+              />
+            </FormField>
+
+            <FormField label="Provider Type" htmlFor="ptype" required>
+              <Select
+                id="ptype"
+                aria-label="Provider type"
+                value={providerType}
+                onChange={(e) => setProviderType(e.target.value)}
+                data-testid="provider-type-select"
+              >
+                {TYPES.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </Select>
+            </FormField>
+
+            {providerType !== "LOCAL" ? (
+              <FormField label="API Key" htmlFor="pkey" required hint="Stored encrypted with Fernet AES">
+                <Input
+                  id="pkey"
+                  type="password"
+                  aria-label="API key"
+                  placeholder="sk-••••••••••••••••"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  data-testid="provider-key-input"
+                />
+              </FormField>
+            ) : (
+              <div className="flex items-end pb-1.5 text-xs text-slate-500 font-medium">
+                Local mock adapter (No API key required)
+              </div>
+            )}
+          </div>
+
+          <div className="mt-4 flex justify-end">
+            <Button
+              onClick={() => createMutation.mutate()}
+              disabled={createMutation.isPending || !name}
+              isLoading={createMutation.isPending}
+              data-testid="add-provider-btn"
+            >
+              Add Provider
+            </Button>
+          </div>
         </Card>
-      )}
+
+        {/* Provider List Table */}
+        <Card title={`Configured Providers (${providerList.length})`} className="shadow-sm">
+          {providers.isLoading ? (
+            <div className="p-8 text-center text-slate-400">Loading providers…</div>
+          ) : providerList.length === 0 ? (
+            <EmptyState
+              title="No providers configured yet"
+              description="Add a Local or Cloud provider above to begin connecting AI models."
+            />
+          ) : (
+            <Table>
+              <TableHeader>
+                <tr>
+                  <TableHead>Provider Name</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>API Key</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Connection Health</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </tr>
+              </TableHeader>
+              <TableBody>
+                {providerList.map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell className="font-semibold text-slate-900">{p.name}</TableCell>
+                    <TableCell>
+                      <Badge variant="neutral">{p.provider_type}</Badge>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs text-slate-500">
+                      {p.masked_key || (p.provider_type === "LOCAL" ? "— (Local)" : "sk-••••••••")}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={p.status} />
+                    </TableCell>
+                    <TableCell>
+                      {p.last_connection_status === "CONNECTED" ? (
+                        <Badge variant="success" dot>CONNECTED</Badge>
+                      ) : p.last_connection_status ? (
+                        <Badge variant="warning">{p.last_connection_status}</Badge>
+                      ) : (
+                        <span className="text-xs text-slate-400">Untested</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => testMutation.mutate(p.id)}
+                          disabled={testMutation.isPending}
+                          data-testid={`test-provider-${p.id}`}
+                        >
+                          {testMutation.isPending ? "Testing…" : "Test"}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                          onClick={() => {
+                            if (confirm(`Delete provider ${p.name}?`)) deleteMutation.mutate(p.id);
+                          }}
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </Card>
+      </div>
     </AppShell>
   );
 }

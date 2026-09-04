@@ -826,3 +826,311 @@ export interface BenchmarkRunDetailResponse {
   clusters: FailureClusterResponse[];
   recommendation: RootCauseRecommendationResponse | null;
 }
+
+// ---- Phase 10 Intelligence & Release Decision types ----
+export interface ReleasePolicyResponse {
+  id: string;
+  project_id: string;
+  environment_id: string | null;
+  name: string;
+  description: string | null;
+  version: number;
+  min_reliability_score: number | null;
+  max_regression_severity: string | null;
+  max_error_rate: number | null;
+  max_latency_ms: number | null;
+  max_p95_latency_ms: number | null;
+  max_cost: number | null;
+  max_critical_alerts: number;
+  min_statistical_confidence: number | null;
+  min_sample_size: number | null;
+  required_benchmark: boolean;
+  required_evaluation: boolean;
+  required_dataset_version_id: string | null;
+  required_quality_gates: boolean;
+  max_evidence_age_days: number;
+  custom_rules: Record<string, any> | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReleasePolicyCreate {
+  name: string;
+  description?: string | null;
+  environment_id?: string | null;
+  min_reliability_score?: number | null;
+  max_regression_severity?: string | null;
+  max_error_rate?: number | null;
+  max_latency_ms?: number | null;
+  max_p95_latency_ms?: number | null;
+  max_cost?: number | null;
+  max_critical_alerts?: number;
+  min_statistical_confidence?: number | null;
+  min_sample_size?: number | null;
+  required_benchmark?: boolean;
+  required_evaluation?: boolean;
+  required_dataset_version_id?: string | null;
+  required_quality_gates?: boolean;
+  max_evidence_age_days?: number;
+  custom_rules?: Record<string, any> | null;
+}
+
+export interface ReleasePolicyUpdate {
+  name?: string;
+  description?: string | null;
+  environment_id?: string | null;
+  min_reliability_score?: number | null;
+  max_regression_severity?: string | null;
+  max_error_rate?: number | null;
+  max_latency_ms?: number | null;
+  max_p95_latency_ms?: number | null;
+  max_cost?: number | null;
+  max_critical_alerts?: number;
+  min_statistical_confidence?: number | null;
+  min_sample_size?: number | null;
+  required_benchmark?: boolean;
+  required_evaluation?: boolean;
+  required_dataset_version_id?: string | null;
+  required_quality_gates?: boolean;
+  max_evidence_age_days?: number;
+  custom_rules?: Record<string, any> | null;
+}
+
+export interface ReleaseEvidenceResponse {
+  id: string;
+  release_decision_id: string;
+  source_type: string;
+  source_id: string;
+  environment_id: string | null;
+  methodology_version: string | null;
+  freshness_timestamp: string | null;
+  is_fresh: boolean;
+  summary: Record<string, any> | null;
+  created_at: string;
+}
+
+export interface ReleaseCheckResponse {
+  id: string;
+  release_decision_id: string;
+  rule_name: string;
+  status: string; // PASS, FAIL, WARNING, MISSING, STALE, NOT_APPLICABLE
+  actual_value: any;
+  expected_value: any;
+  evidence_reference: any;
+  explanation: string;
+  is_blocking: boolean;
+  created_at: string;
+}
+
+export interface ReleaseDecisionResponse {
+  id: string;
+  project_id: string;
+  organization_id: string;
+  environment_id: string;
+  model_id: string;
+  provider_id: string;
+  release_policy_id: string;
+  policy_version: number;
+  model_version: string | null;
+  model_configuration: Record<string, any> | null;
+  status: string; // DRAFT, COLLECTING_EVIDENCE, READY, DECIDED, STALE, SUPERSEDED, FAILED
+  outcome: string | null; // APPROVED, CONDITIONALLY_APPROVED, REJECTED, INSUFFICIENT_EVIDENCE, BLOCKED
+  readiness_score: number | null;
+  readiness_breakdown: Record<string, any> | null;
+  configuration_fingerprint: string;
+  stale_reason: string | null;
+  superseded_by_id: string | null;
+  evaluated_at: string | null;
+  created_at: string;
+  updated_at: string;
+  checks?: ReleaseCheckResponse[];
+  evidences?: ReleaseEvidenceResponse[];
+}
+
+export interface ReleaseDecisionCreate {
+  environment_id: string;
+  model_id: string;
+  release_policy_id: string;
+  model_version?: string | null;
+  model_configuration?: Record<string, any> | null;
+}
+
+export interface DecisionComparisonMetric {
+  metric_name: string;
+  dimension: string;
+  previous_value: any;
+  current_value: any;
+  change_status: string; // IMPROVED, REGRESSED, UNCHANGED, NEW, REMOVED
+  explanation: string;
+}
+
+export interface DecisionComparisonResponse {
+  current_decision_id: string;
+  previous_decision_id: string;
+  is_compatible: boolean;
+  metrics: DecisionComparisonMetric[];
+  summary: string;
+}
+
+export interface ProjectIntelligenceOverviewResponse {
+  project_id: string;
+  overall_status: string; // READY, AT_RISK, BLOCKED, INSUFFICIENT_EVIDENCE
+  readiness_score: number | null;
+  latest_decision: ReleaseDecisionResponse | null;
+  blocking_issues: string[];
+  warnings: string[];
+  model_comparisons: Array<{
+    model_id: string;
+    name: string;
+    provider_id: string;
+    readiness_score: number | null;
+    latest_outcome: string;
+  }>;
+  recent_changes: Array<{
+    decision_id: string;
+    model_id: string;
+    outcome: string | null;
+    status: string;
+    readiness_score: number | null;
+    created_at: string;
+  }>;
+}
+
+export interface ProjectIntelligenceActionsResponse {
+  project_id: string;
+  actions: Array<{
+    action_type: string;
+    priority: string;
+    title: string;
+    description: string;
+  }>;
+}
+
+// ----------------------------------------------------------------------------
+// Phase 11: AI Agent Evaluation, Trajectory Testing & Agent Reliability
+// ----------------------------------------------------------------------------
+
+export interface ToolDefinitionResponse {
+  id: string;
+  project_id: string;
+  name: string;
+  description: string | null;
+  input_schema: Record<string, any>;
+  output_schema: Record<string, any> | null;
+  version: number;
+  safety_level: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  timeout_seconds: number;
+  metadata: Record<string, any> | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AgentDefinitionResponse {
+  id: string;
+  project_id: string;
+  name: string;
+  description: string | null;
+  agent_type: 'CHAT_AGENT' | 'TOOL_AGENT' | 'RAG_AGENT' | 'WORKFLOW_AGENT' | 'MULTI_AGENT';
+  version: number;
+  provider_id: string | null;
+  model_id: string | null;
+  environment_id: string | null;
+  system_prompt: string | null;
+  tool_manifest: any[] | null;
+  retrieval_configuration: Record<string, any> | null;
+  configuration: Record<string, any> | null;
+  metadata: Record<string, any> | null;
+  configuration_fingerprint: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AgentTrajectoryStepResponse {
+  id: string;
+  agent_run_id: string;
+  step_number: number;
+  step_type: string;
+  status: string;
+  parent_step_id: string | null;
+  span_id: string | null;
+  tool_definition_id: string | null;
+  tool_name: string | null;
+  tool_call_id: string | null;
+  tool_arguments: Record<string, any> | null;
+  tool_result: Record<string, any> | null;
+  model_input: string | null;
+  model_output: string | null;
+  error_category: string | null;
+  error_message: string | null;
+  duration_ms: number | null;
+  timestamp: string;
+  metadata: Record<string, any> | null;
+}
+
+export interface TrajectoryCheckResult {
+  check_name: string;
+  status: 'PASS' | 'FAIL' | 'WARNING' | 'NOT_APPLICABLE';
+  actual_value: any;
+  expected_value: any;
+  is_blocking: boolean;
+  explanation: string;
+  step_references: number[];
+}
+
+export interface AgentRunResponse {
+  id: string;
+  project_id: string;
+  agent_id: string;
+  agent_version: number;
+  agent_fingerprint: string;
+  dataset_version_id: string | null;
+  test_case_id: string | null;
+  environment_id: string | null;
+  trace_id: string | null;
+  status: string;
+  goal_completion_status: string;
+  total_steps: number;
+  total_tool_calls: number;
+  successful_tool_calls: number;
+  failed_tool_calls: number;
+  recovered_failures: number;
+  unrecovered_failures: number;
+  loops_detected: number;
+  safety_violations: number;
+  duration_ms: number | null;
+  estimated_cost: number | null;
+  total_tokens: number | null;
+  final_output: string | null;
+  error_message: string | null;
+  reliability_score: number | null;
+  reliability_breakdown: Record<string, any> | null;
+  evaluation_checks: TrajectoryCheckResult[] | null;
+  metadata: Record<string, any> | null;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  trajectory_steps?: AgentTrajectoryStepResponse[];
+}
+
+export interface TrajectoryEvaluationResponse {
+  run_id: string;
+  overall_status: string;
+  checks: TrajectoryCheckResult[];
+  reliability_score: number | null;
+  loops_detected: number;
+  safety_violations: number;
+  recovery_rate: number;
+  recommendations: Array<Record<string, any>>;
+}
+
+export interface AgentReliabilityResponse {
+  agent_id: string;
+  agent_version: number;
+  reliability_score: number | null;
+  goal_completion_status: string;
+  safety_violations: number;
+  loops_detected: number;
+  reliability_breakdown: Record<string, any> | null;
+  evaluation_checks: TrajectoryCheckResult[] | null;
+}

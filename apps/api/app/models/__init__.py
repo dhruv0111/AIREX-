@@ -34,9 +34,66 @@ from app.models.benchmark import (
     FailureCluster,
     RootCauseRecommendation,
 )
+from app.models.release_decision import (
+    ReleasePolicy,
+    ReleaseDecision,
+    ReleaseEvidence,
+    ReleaseCheck,
+)
+from app.models.agent import (
+    ToolDefinition,
+    AgentDefinition,
+    AgentRun,
+    AgentTrajectoryStep,
+)
+from app.models.session import UserSession
+from app.models.worker import WorkerHeartbeat, TaskFailure
+from app.models.identity import IdentityProvider, OrganizationDomain
+from app.models.team import Team, TeamMember, TeamProjectAccess, UserProjectAccess
+from app.models.governance import (
+    GovernancePolicy,
+    ApprovalRequest,
+    ApprovalStep,
+    ApprovalDecision,
+    AccessReview,
+    AccessReviewItem,
+)
+from app.models.compliance import (
+    ComplianceFramework,
+    ComplianceControl,
+    ComplianceEvidence,
+    RetentionPolicy,
+    LegalHold,
+    ComplianceAssessment,
+    ComplianceAssessmentItem,
+    ComplianceRemediation,
+)
 
 __all__ = [
+    "ComplianceFramework",
+    "ComplianceControl",
+    "ComplianceEvidence",
+    "RetentionPolicy",
+    "LegalHold",
+    "ComplianceAssessment",
+    "ComplianceAssessmentItem",
+    "ComplianceRemediation",
     "User",
+    "UserSession",
+    "WorkerHeartbeat",
+    "TaskFailure",
+    "IdentityProvider",
+    "OrganizationDomain",
+    "Team",
+    "TeamMember",
+    "TeamProjectAccess",
+    "UserProjectAccess",
+    "GovernancePolicy",
+    "ApprovalRequest",
+    "ApprovalStep",
+    "ApprovalDecision",
+    "AccessReview",
+    "AccessReviewItem",
     "Organization",
     "OrganizationMember",
     "Project",
@@ -76,4 +133,12 @@ __all__ = [
     "ReliabilityEvidence",
     "FailureCluster",
     "RootCauseRecommendation",
+    "ReleasePolicy",
+    "ReleaseDecision",
+    "ReleaseEvidence",
+    "ReleaseCheck",
+    "ToolDefinition",
+    "AgentDefinition",
+    "AgentRun",
+    "AgentTrajectoryStep",
 ]

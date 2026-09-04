@@ -275,6 +275,115 @@ airex_notifications_failed_total = Counter(
     ["channel"],
 )
 
+# Phase 10: Intelligence & Deployment Decisions
+airex_release_decisions_total = Counter(
+    "airex_release_decisions_total",
+    "Total release decisions evaluated by outcome and environment",
+    ["outcome", "environment"],
+)
+airex_release_decision_duration_seconds = Histogram(
+    "airex_release_decision_duration_seconds",
+    "Time taken to evaluate release decisions",
+    buckets=[0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0],
+)
+airex_release_decision_checks_total = Counter(
+    "airex_release_decision_checks_total",
+    "Total individual policy checks evaluated",
+    ["rule", "status"],
+)
+airex_release_decision_blocked_total = Counter(
+    "airex_release_decision_blocked_total",
+    "Total decisions blocked by rule reason",
+    ["reason"],
+)
+airex_release_evidence_stale_total = Counter(
+    "airex_release_evidence_stale_total",
+    "Total evidence items marked stale during decision evaluation",
+    ["source_type"],
+)
+
+# Phase 11: AI Agent Evaluation & Trajectory Testing
+airex_agent_runs_total = Counter(
+    "airex_agent_runs_total",
+    "Total agent execution runs by status and agent",
+    ["status", "agent"],
+)
+airex_agent_run_duration_seconds = Histogram(
+    "airex_agent_run_duration_seconds",
+    "Execution duration for agent runs",
+    buckets=[0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0],
+)
+airex_agent_steps_total = Counter(
+    "airex_agent_steps_total",
+    "Total trajectory steps executed across all agents",
+    ["step_type"],
+)
+airex_agent_tool_calls_total = Counter(
+    "airex_agent_tool_calls_total",
+    "Total tool invocations by agent and outcome",
+    ["tool", "status"],
+)
+airex_agent_failures_total = Counter(
+    "airex_agent_failures_total",
+    "Total agent execution failures by error category",
+    ["error_category"],
+)
+airex_agent_loops_detected_total = Counter(
+    "airex_agent_loops_detected_total",
+    "Total trajectory loops detected by type",
+    ["loop_type"],
+)
+airex_agent_safety_violations_total = Counter(
+    "airex_agent_safety_violations_total",
+    "Total agent safety violations by violation type",
+    ["violation_type"],
+)
+
+
+import collections
+
+_REQUEST_STATS: collections.deque[tuple[float, float, int]] = collections.deque(maxlen=2000)
+
+
+def record_request_stat(duration_ms: float, status_code: int) -> None:
+    _REQUEST_STATS.append((time.time(), duration_ms, status_code))
+
+
+def get_request_stats(window_seconds: int = 60) -> dict[str, Any]:
+    now = time.time()
+    cutoff = now - window_seconds
+    recent = [item for item in _REQUEST_STATS if item[0] >= cutoff]
+    if not recent:
+        return {
+            "total_requests": 0,
+            "requests_per_second": 0.0,
+            "error_rate": 0.0,
+            "p50_ms": 0.0,
+            "p95_ms": 0.0,
+            "p99_ms": 0.0,
+            "avg_ms": 0.0,
+        }
+
+    durations = sorted([item[1] for item in recent])
+    n = len(durations)
+    errors = sum(1 for item in recent if item[2] >= 500)
+
+    p50 = durations[int(n * 0.50)]
+    p95 = durations[min(int(n * 0.95), n - 1)]
+    p99 = durations[min(int(n * 0.99), n - 1)]
+    avg = sum(durations) / n
+    rps = n / window_seconds
+
+    return {
+        "total_requests": n,
+        "requests_per_second": round(rps, 2),
+        "error_rate": round(errors / n, 4),
+        "p50_ms": round(p50, 2),
+        "p95_ms": round(p95, 2),
+        "p99_ms": round(p99, 2),
+        "avg_ms": round(avg, 2),
+    }
+
 
 class MetricsMiddleware(BaseHTTPMiddleware):
     """Record request metrics and emit them to Prometheus."""
@@ -291,15 +400,19 @@ class MetricsMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
         except Exception:
             http_errors_total.labels(method=request.method, path=path).inc()
+            duration_ms = (time.perf_counter() - start) * 1000.0
+            record_request_stat(duration_ms, 500)
             raise
         finally:
             duration = time.perf_counter() - start
+            duration_ms = duration * 1000.0
             http_request_duration_seconds.labels(method=request.method, path=path).observe(duration)
             try:
                 status = getattr(response, "status_code", 500) if "response" in locals() else 500
             except Exception:
                 status = 500
             http_requests_total.labels(method=request.method, path=path, status=str(status)).inc()
+            record_request_stat(duration_ms, status)
         return response
 
 

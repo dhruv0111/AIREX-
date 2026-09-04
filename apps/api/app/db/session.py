@@ -14,8 +14,15 @@ from app.core.config import get_settings
 
 
 def create_engine_and_sessionmaker(database_url: str | None = None):
-    url = database_url or get_settings().database_url
-    engine = create_async_engine(url, echo=False, pool_pre_ping=True)
+    settings = get_settings()
+    url = database_url or settings.database_url
+    kwargs = {"echo": False, "pool_pre_ping": True}
+    if not url.startswith("sqlite"):
+        kwargs["pool_size"] = settings.db_pool_size
+        kwargs["max_overflow"] = settings.db_max_overflow
+        kwargs["pool_timeout"] = settings.db_pool_timeout
+        kwargs["pool_recycle"] = settings.db_pool_recycle
+    engine = create_async_engine(url, **kwargs)
     session_factory: async_sessionmaker[AsyncSession] = async_sessionmaker(
         bind=engine, expire_on_commit=False
     )

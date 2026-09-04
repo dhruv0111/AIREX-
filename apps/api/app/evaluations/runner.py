@@ -239,25 +239,31 @@ class EvaluationRunner:
             deps,
         )
 
-        # Persist results (idempotent) and update counts.
+        # Persist results (idempotent) and update counts with sensitive data protection.
         persisted = []
+        from app.core.sensitive_data import sanitize_payload
         for outcome in outcomes:
+            actual_out, _, _ = sanitize_payload(outcome["actual_output"])
+            fail_msg, _, _ = sanitize_payload(outcome["failure_message"])
+            expl, _, _ = sanitize_payload(outcome["explanation"])
+            judge_reas, _, _ = sanitize_payload(outcome["judge_reasoning"])
+
             created = await results_repo.create_result(
                 run_id=run_db_id,
                 test_case_id=outcome["test_case_id"],
-                actual_output=outcome["actual_output"],
+                actual_output=actual_out,
                 score=outcome["score"],
                 status=outcome["status"],
                 failure_type=outcome["failure_type"],
-                failure_message=outcome["failure_message"],
+                failure_message=fail_msg,
                 latency_ms=outcome["latency_ms"],
                 input_tokens=outcome["input_tokens"],
                 output_tokens=outcome["output_tokens"],
                 total_tokens=outcome["total_tokens"],
-                explanation=outcome["explanation"],
+                explanation=expl,
                 judge_score=outcome["judge_score"],
                 judge_confidence=outcome["judge_confidence"],
-                judge_reasoning=outcome["judge_reasoning"],
+                judge_reasoning=judge_reas,
                 judge_criteria_scores=outcome["judge_criteria_scores"],
                 judge_model_snapshot=outcome["judge_model_snapshot"],
                 judge_rubric_snapshot=outcome["judge_rubric_snapshot"],
@@ -306,6 +312,19 @@ class EvaluationRunner:
         evaluation_tests_failed_total.inc(failed)
         evaluation_errors_total.inc(errors)
         evaluation_duration_seconds.observe(time.perf_counter() - start)
+
+        # Automatically publish canonical compliance evidence (Phase 15)
+        if org_id is not None:
+            from app.services.evidence_service import publish_canonical_evidence
+            await publish_canonical_evidence(
+                session=session,
+                organization_id=org_id,
+                source_type="evaluation_run",
+                source_id=str(run_db_id),
+                project_id=project_id,
+                metadata_summary={"total": completed, "passed": passed, "failed": failed, "errors": errors},
+            )
+
         await session.commit()
         return {
             "status": "COMPLETED",

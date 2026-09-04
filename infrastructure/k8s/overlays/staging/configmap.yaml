@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: airex-config
+data:
+  APP_ENV: "staging"
+  APP_NAME: "airex-staging"
+  LOG_LEVEL: "DEBUG"
+  WORKER_CONCURRENCY: "5"
+  API_CORS_ORIGINS: "https://staging.app.airex.io,https://staging.api.airex.io"

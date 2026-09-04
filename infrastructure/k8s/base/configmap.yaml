@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: airex-config
+  
+  labels:
+    app.kubernetes.io/name: airex
+    app.kubernetes.io/component: configuration
+data:
+  APP_ENV: "production"
+  APP_NAME: "airex"
+  APP_VERSION: "0.1.0"
+  LOG_LEVEL: "INFO"
+  API_HOST: "0.0.0.0"
+  API_PORT: "8000"
+  PORT: "3000"
+  WORKER_CONCURRENCY: "10"
+  WORKER_MAX_RETRIES: "3"
+  WORKER_RETRY_BACKOFF_BASE: "2.0"
+  WORKER_TASK_TIMEOUT_SECONDS: "300"
+  ALERT_THRESHOLD_ERROR_RATE: "0.05"
+  ALERT_THRESHOLD_P95_LATENCY_MS: "2000.0"
+  ALERT_THRESHOLD_QUEUE_BACKLOG: "100"
+  ALERT_THRESHOLD_DLQ_SIZE: "10"
+  ALERT_THRESHOLD_DB_POOL_UTILIZATION: "0.85"
+  ALERT_DEDUP_WINDOW_SECONDS: "300"
+  BACKUP_RPO_TARGET_SECONDS: "3600"
+  BACKUP_RTO_TARGET_SECONDS: "1800"
+  PROMETHEUS_ENABLED: "true"
+  OTEL_ENABLED: "false"
+  API_CORS_ORIGINS: "https://app.airex.io,https://api.airex.io"

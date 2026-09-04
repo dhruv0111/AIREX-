@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: airex-free
+  labels:
+    name: airex-free
+    app.kubernetes.io/name: airex
+    app.kubernetes.io/part-of: airex-platform
+    environment: free-tier
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted

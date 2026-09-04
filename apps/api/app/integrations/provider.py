@@ -450,14 +450,20 @@ class AnthropicProviderAdapter:
             "anthropic-version": "2023-06-01",
             "Content-Type": "application/json",
         }
+        system_msg = next(
+            (m["content"] for m in request.messages if m.get("role") == "system"), None
+        )
+        user_msgs = [m for m in request.messages if m.get("role") != "system"]
         body: dict[str, Any] = {
             "model": request.model,
-            "messages": request.messages,
+            "messages": user_msgs,
             "max_tokens": request.max_tokens or 1024,
         }
+        if system_msg:
+            body["system"] = system_msg
         if request.temperature is not None:
             body["temperature"] = request.temperature
-        if request.top_p is not None:
+        elif request.top_p is not None:
             body["top_p"] = request.top_p
 
         start = time.perf_counter()

@@ -8,14 +8,10 @@ import { api, ApiClientError } from "@airex/api-client";
 import { AppShell } from "@/components/AppShell";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-
-const FAILURE_COLORS: Record<string, string> = {
-  PASS: "bg-green-100 text-green-700",
-  FAIL: "bg-red-100 text-red-700",
-  ERROR: "bg-amber-100 text-amber-700",
-  SKIPPED: "bg-slate-100 text-slate-600",
-};
+import { Card, MetricCard } from "@/components/ui/Card";
+import { Badge, StatusBadge } from "@/components/ui/Badge";
+import { Select } from "@/components/ui/Input";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/Table";
 
 export default function EvaluationDetailPage() {
   const params = useParams<{ id: string; evaluationId: string }>();
@@ -31,7 +27,7 @@ export default function EvaluationDetailPage() {
     queryFn: () => api.getEvaluation(evaluationId),
     refetchInterval: (query) => {
       const status = query.state.data?.data.status;
-      return status === "QUEUED" || status === "RUNNING" ? 3000 : false;
+      return status === "QUEUED" || status === "RUNNING" ? 2000 : false;
     },
   });
 
@@ -68,250 +64,234 @@ export default function EvaluationDetailPage() {
   const run = evaluation.data?.data;
   const metrics = run?.metrics;
   const progress = run && run.total_tests > 0 ? Math.round((run.completed_tests / run.total_tests) * 100) : 0;
+  const passRate = metrics ? (metrics.pass_rate * 100).toFixed(1) : (run?.total_tests ? ((run.passed_tests / run.total_tests) * 100).toFixed(1) : "0.0");
 
   return (
     <AppShell>
-      <Link href={`/projects/${projectId}/evaluations`} className="text-sm text-brand hover:underline">
-        ← Evaluations
-      </Link>
-      <h1 className="mt-2 mb-4 text-2xl font-bold text-slate-900">
-        Evaluation {evaluationId.slice(0, 8)}
-      </h1>
-      {error ? <Alert kind="error" className="mb-4">{error}</Alert> : null}
-
-      {evaluation.isLoading ? (
-        <Card><p className="text-sm text-slate-400">Loading evaluation…</p></Card>
-      ) : evaluation.isError ? (
-        <Card><Alert kind="error">{(evaluation.error as Error).message}</Alert></Card>
-      ) : run ? (
-        <>
-          <div className="mb-6 grid gap-4 md:grid-cols-2">
-            <Card title="Status">
-              <div className="flex items-center gap-3">
-                <span
-                  className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-                    run.status === "COMPLETED"
-                      ? "bg-green-100 text-green-700"
-                      : run.status === "FAILED"
-                        ? "bg-red-100 text-red-700"
-                        : "bg-slate-100 text-slate-700"
-                  }`}
-                >
-                  {run.status}
-                </span>
-                <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
-                  <div
-                    className="h-full bg-brand transition-all"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-                <span className="text-sm text-slate-500">
-                  {run.completed_tests}/{run.total_tests}
-                </span>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {run.status === "QUEUED" ? (
-                  <Button onClick={() => runMutation.mutate()} disabled={runMutation.isPending}>
-                    {runMutation.isPending ? "Starting…" : "Run now"}
-                  </Button>
-                ) : null}
-                {run.status === "QUEUED" || run.status === "RUNNING" ? (
-                  <Button variant="danger" onClick={() => cancelMutation.mutate()} disabled={cancelMutation.isPending}>
-                    {cancelMutation.isPending ? "Cancelling…" : "Cancel"}
-                  </Button>
-                ) : null}
-              </div>
-            </Card>
-            <Card title="Summary">
-              <dl className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <dt className="text-slate-500">Passed</dt>
-                  <dd className="font-medium text-slate-900">{run.passed_tests}</dd>
-                </div>
-                <div>
-                  <dt className="text-slate-500">Failed</dt>
-                  <dd className="font-medium text-slate-900">{run.failed_tests}</dd>
-                </div>
-                <div>
-                  <dt className="text-slate-500">Errors</dt>
-                  <dd className="font-medium text-slate-900">{run.error_tests}</dd>
-                </div>
-                <div>
-                  <dt className="text-slate-500">Pass rate</dt>
-                  <dd className="font-medium text-slate-900">
-                    {metrics ? `${(metrics.pass_rate * 100).toFixed(1)}%` : "—"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-slate-500">Avg latency</dt>
-                  <dd className="font-medium text-slate-900">
-                    {metrics?.average_latency_ms != null ? `${metrics.average_latency_ms} ms` : "—"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-slate-500">p95 latency</dt>
-                  <dd className="font-medium text-slate-900">
-                    {metrics?.p95_latency_ms != null ? `${metrics.p95_latency_ms} ms` : "—"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-slate-500">Total tokens</dt>
-                  <dd className="font-medium text-slate-900">{metrics?.total_tokens ?? 0}</dd>
-                </div>
-                <div>
-                  <dt className="text-slate-500">Dataset checksum</dt>
-                  <dd className="font-mono text-xs text-slate-900">
-                    {run.dataset_checksum ? run.dataset_checksum.slice(0, 16) + "…" : "—"}
-                  </dd>
-                </div>
-                {metrics?.average_judge_score != null ? (
-                  <>
-                    <div>
-                      <dt className="text-slate-500">Avg judge score</dt>
-                      <dd className="font-medium text-slate-900">{metrics.average_judge_score}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-slate-500">Avg confidence</dt>
-                      <dd className="font-medium text-slate-900">{metrics.average_confidence ?? "—"}</dd>
-                    </div>
-                  </>
-                ) : null}
-              </dl>
-            </Card>
+      <div className="space-y-6" data-testid="evaluation-detail-view">
+        {/* Breadcrumbs & Header */}
+        <div className="border-b border-slate-200 pb-5">
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 mb-1">
+            <Link href={`/projects/${projectId}/evaluations`} className="hover:text-slate-900 transition">
+              ← Back to Evaluations
+            </Link>
           </div>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900" data-testid="evaluation-run-title">
+                Evaluation Report
+              </h1>
+              <span className="font-mono text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                {evaluationId.slice(0, 12)}
+              </span>
+              <StatusBadge status={run?.status} />
+            </div>
 
-          <Card title="Results" className="mb-6">
-            <div className="mb-4 flex flex-wrap gap-3 text-sm">
-              <label className="flex items-center gap-2 text-slate-600">
-                Status
-                <select
+            <div className="flex items-center gap-2">
+              {run?.status === "QUEUED" && (
+                <Button
+                  onClick={() => runMutation.mutate()}
+                  disabled={runMutation.isPending}
+                  isLoading={runMutation.isPending}
+                  data-testid="eval-run-now-btn"
+                >
+                  Start Execution
+                </Button>
+              )}
+              {(run?.status === "QUEUED" || run?.status === "RUNNING") && (
+                <Button
+                  variant="danger"
+                  onClick={() => cancelMutation.mutate()}
+                  disabled={cancelMutation.isPending}
+                >
+                  Cancel
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {error ? <Alert kind="error">{error}</Alert> : null}
+
+        {evaluation.isLoading ? (
+          <div className="p-12 text-center text-slate-400">Loading evaluation report…</div>
+        ) : evaluation.isError ? (
+          <Alert kind="error">{(evaluation.error as Error).message}</Alert>
+        ) : run ? (
+          <>
+            {/* Top KPI Metric Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" data-testid="eval-metrics-grid">
+              <MetricCard
+                label="Quality Gate Pass Rate"
+                value={`${passRate}%`}
+                subvalue={`${run.passed_tests} passed / ${run.total_tests} total`}
+                accent={Number(passRate) >= 80 ? "success" : "warning"}
+                testId="eval-pass-rate"
+              />
+              <MetricCard
+                label="Average Latency"
+                value={metrics?.average_latency_ms != null ? `${metrics.average_latency_ms} ms` : "—"}
+                subvalue={metrics?.p95_latency_ms != null ? `p95: ${metrics.p95_latency_ms} ms` : "Deterministic"}
+                accent="brand"
+                testId="eval-latency"
+              />
+              <MetricCard
+                label="Failed / Errors"
+                value={`${run.failed_tests} / ${run.error_tests}`}
+                subvalue="Regression failures"
+                accent={run.failed_tests > 0 ? "danger" : "neutral"}
+                testId="eval-failed-count"
+              />
+              <MetricCard
+                label="Total Tokens Consumed"
+                value={metrics?.total_tokens ?? 0}
+                subvalue="Inference footprint"
+                accent="neutral"
+                testId="eval-tokens"
+              />
+            </div>
+
+            {/* Execution Progress & Configuration */}
+            <Card title="Execution Summary" className="shadow-sm">
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
+                    <span>Execution Progress</span>
+                    <span>{progress}% ({run.completed_tests}/{run.total_tests} completed)</span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                    <div
+                      className="h-full bg-brand-600 transition-all duration-300"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-3 border-t border-slate-100 text-xs">
+                  <div>
+                    <span className="text-slate-500 block">Dataset Checksum</span>
+                    <span className="font-mono text-slate-800 font-semibold truncate block mt-0.5">
+                      {run.dataset_checksum ? run.dataset_checksum.slice(0, 18) : "—"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Execution Started</span>
+                    <span className="text-slate-800 font-mono mt-0.5 block">
+                      {new Date(run.created_at).toLocaleString()}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Judge Model Score</span>
+                    <span className="text-slate-800 font-bold mt-0.5 block">
+                      {metrics?.average_judge_score ?? "—"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Judge Confidence</span>
+                    <span className="text-slate-800 font-bold mt-0.5 block">
+                      {metrics?.average_confidence ? `${(metrics.average_confidence * 100).toFixed(0)}%` : "—"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* Test Case Results Table */}
+            <Card title="Individual Test Case Results" subtitle="Detailed input, expected output, and assertion scores" className="shadow-sm">
+              <div className="mb-4 flex flex-wrap gap-3 text-sm">
+                <Select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="rounded-md border border-slate-300 px-2 py-1"
+                  className="sm:w-36"
                 >
-                  <option value="">All</option>
+                  <option value="">All Statuses</option>
                   <option value="PASS">PASS</option>
                   <option value="FAIL">FAIL</option>
                   <option value="ERROR">ERROR</option>
-                  <option value="SKIPPED">SKIPPED</option>
-                </select>
-              </label>
-              <label className="flex items-center gap-2 text-slate-600">
-                Failure type
-                <select
+                </Select>
+
+                <Select
                   value={failureFilter}
                   onChange={(e) => setFailureFilter(e.target.value)}
-                  className="rounded-md border border-slate-300 px-2 py-1"
+                  className="sm:w-48"
                 >
-                  <option value="">All</option>
+                  <option value="">All Failure Types</option>
                   <option value="ASSERTION_FAILED">ASSERTION_FAILED</option>
-                  <option value="EVALUATOR_ERROR">EVALUATOR_ERROR</option>
                   <option value="TIMEOUT">TIMEOUT</option>
                   <option value="PROVIDER_ERROR">PROVIDER_ERROR</option>
-                  <option value="INVALID_OUTPUT">INVALID_OUTPUT</option>
-                </select>
-              </label>
-            </div>
+                </Select>
+              </div>
 
-            {results.isLoading ? (
-              <p className="text-sm text-slate-400">Loading results…</p>
-            ) : results.isError ? (
-              <Alert kind="error">{(results.error as Error).message}</Alert>
-            ) : !results.data?.data.length ? (
-              <p className="text-sm text-slate-500">No results match the current filters.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-slate-500">
-                      <th className="py-2 pr-4">Status</th>
-                      <th className="py-2 pr-4">Failure</th>
-                      <th className="py-2 pr-4">Latency</th>
-                      <th className="py-2 pr-4">Tokens</th>
-                      <th className="py-2 pr-4">Judge</th>
-                      <th className="py-2">Actual output</th>
+              {results.isLoading ? (
+                <div className="p-8 text-center text-slate-400">Loading results…</div>
+              ) : results.isError ? (
+                <Alert kind="error">{(results.error as Error).message}</Alert>
+              ) : !results.data?.data.length ? (
+                <p className="text-sm text-slate-500 py-4 text-center">No results match filter.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <tr>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Failure / Error</TableHead>
+                      <TableHead>Latency</TableHead>
+                      <TableHead>Tokens</TableHead>
+                      <TableHead>Judge Score</TableHead>
+                      <TableHead className="w-1/3">Model Output & Explanation</TableHead>
                     </tr>
-                  </thead>
-                  <tbody>
+                  </TableHeader>
+                  <TableBody>
                     {results.data.data.map((res) => (
-                      <tr key={res.id} className="border-b align-top">
-                        <td className="py-2 pr-4">
-                          <span
-                            className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-                              FAILURE_COLORS[res.status] ?? "bg-slate-100 text-slate-600"
-                            }`}
-                          >
-                            {res.status}
-                          </span>
-                        </td>
-                        <td className="py-2 pr-4">
+                      <TableRow key={res.id}>
+                        <TableCell>
+                          <StatusBadge status={res.status} />
+                        </TableCell>
+                        <TableCell>
                           {res.failure_type ? (
-                            <div>
-                              <span className="font-mono text-xs text-amber-700">{res.failure_type}</span>
-                              {res.failure_message ? (
-                                <p className="mt-1 max-w-xs text-xs text-slate-500">{res.failure_message}</p>
-                              ) : null}
-                            </div>
+                            <span className="font-mono text-xs text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                              {res.failure_type}
+                            </span>
                           ) : (
-                            <span className="text-slate-400">—</span>
+                            <span className="text-xs text-slate-400">—</span>
                           )}
-                        </td>
-                        <td className="py-2 pr-4 text-slate-600">{res.latency_ms ?? "—"} ms</td>
-                        <td className="py-2 pr-4 text-slate-600">{res.total_tokens ?? 0}</td>
-                        <td className="py-2 pr-4">
+                        </TableCell>
+                        <TableCell className="font-mono text-xs text-slate-700">
+                          {res.latency_ms ?? "—"} ms
+                        </TableCell>
+                        <TableCell className="font-mono text-xs text-slate-700">
+                          {res.total_tokens ?? 0}
+                        </TableCell>
+                        <TableCell>
                           {res.judge_score != null ? (
-                            <div className="text-xs text-slate-600">
-                              <p>
-                                Score <span className="font-medium text-slate-900">{res.judge_score}</span>
-                                {res.combined_score != null ? (
-                                  <span className="text-slate-400"> (combined {res.combined_score})</span>
-                                ) : null}
-                              </p>
-                              <p>
-                                Confidence{" "}
-                                <span className="font-medium text-slate-900">{res.judge_confidence ?? "—"}</span>
-                              </p>
-                              {res.judge_criteria_scores ? (
-                                <div className="mt-1">
-                                  {Object.entries(res.judge_criteria_scores).map(([k, v]) => (
-                                    <p key={k} className="capitalize">
-                                      {k}: <span className="font-medium">{v}</span>
-                                    </p>
-                                  ))}
-                                </div>
-                              ) : null}
-                              {res.judge_reasoning ? (
-                                <p className="mt-1 max-w-xs text-slate-500">{res.judge_reasoning}</p>
-                              ) : null}
-                              {res.judge_model_snapshot || res.judge_rubric_snapshot ? (
-                                <p className="mt-1 text-slate-400">
-                                  {String(res.judge_model_snapshot?.model_identifier ?? "judge")} · rubric v
-                                  {String(res.judge_rubric_snapshot?.version ?? "?")} · prompt{" "}
-                                  {res.judge_prompt_version ?? "?"}
-                                </p>
-                              ) : null}
-                            </div>
+                            <span className="font-mono text-xs font-bold text-slate-900">
+                              {res.judge_score}
+                            </span>
                           ) : (
-                            <span className="text-slate-400">—</span>
+                            <span className="text-xs text-slate-400">—</span>
                           )}
-                        </td>
-                        <td className="py-2">
-                          <p className="max-w-md truncate font-mono text-xs text-slate-600">
+                        </TableCell>
+                        <TableCell>
+                          <p className="font-mono text-xs text-slate-800 line-clamp-2">
                             {res.actual_output ?? "—"}
                           </p>
-                          {res.explanation ? (
-                            <p className="mt-1 max-w-md text-xs text-slate-500">{res.explanation}</p>
+                          {res.judge_reasoning ? (
+                            <p className="mt-1 text-xs text-slate-600 bg-slate-50 p-1.5 rounded border border-slate-100 line-clamp-3">
+                              <span className="font-semibold text-slate-700">Judge: </span>
+                              {res.judge_reasoning}
+                            </p>
+                          ) : res.explanation ? (
+                            <p className="mt-1 text-xs text-slate-500">{res.explanation}</p>
                           ) : null}
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Card>
-        </>
-      ) : null}
+                  </TableBody>
+                </Table>
+              )}
+            </Card>
+          </>
+        ) : null}
+      </div>
     </AppShell>
   );
 }

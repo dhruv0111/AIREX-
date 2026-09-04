@@ -39,13 +39,10 @@ async def _verify_project_access(
     if not project or project.organization_id != organization_id:
         raise NotFoundError("Project not found.")
 
-    org_service = OrganizationService(db)
-    role = await org_service.resolve_membership(
-        org_id=organization_id,
-        user_id=user_id,
-    )
+    from app.core.permissions import resolve_user_project_access
+    role, _ = await resolve_user_project_access(db, user_id, project_id, organization_id)
     if role is None:
-        raise ForbiddenError("You do not have access to this organization.")
+        raise ForbiddenError("You do not have access to this project.")
 
     if require_write and role == Role.VIEWER:
         raise ForbiddenError("Viewer cannot perform write operations on benchmarks.")

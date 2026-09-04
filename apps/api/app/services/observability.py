@@ -83,13 +83,29 @@ class ObservabilityService:
                 is_sampled = random.random() < sample_rate
 
             if is_sampled:
-                # Apply privacy mapping to trace metadata
+                from app.core.sensitive_data import sanitize_payload, SensitiveDataAction
+                policy_action = settings.get("sensitive_data_policy", SensitiveDataAction.REDACT)
+
+                # Sanitize name and error fields
+                if t.get("name"):
+                    t["name"], _, _ = sanitize_payload(t["name"], policy_action)
+                if t.get("error"):
+                    t["error"], _, _ = sanitize_payload(t["error"], policy_action)
+
+                # Apply privacy mapping to trace metadata and sanitize
                 t["metadata"] = self._apply_privacy_to_dict(t.get("metadata"), mode)
+                t["metadata"], _, is_blocked = sanitize_payload(t["metadata"], policy_action)
+                if is_blocked and policy_action == SensitiveDataAction.BLOCK:
+                    continue
+
                 traces_to_insert.append(t)
                 sampled_trace_ids.add(trace_id)
 
         # 2. Process Spans belonging to sampled traces
         spans_to_insert = []
+        from app.core.sensitive_data import sanitize_payload, SensitiveDataAction
+        policy_action = settings.get("sensitive_data_policy", SensitiveDataAction.REDACT)
+
         for s in spans:
             trace_id = s["trace_id"]
 
@@ -103,8 +119,17 @@ class ObservabilityService:
             if isinstance(s.get("end_time"), str):
                 s["end_time"] = datetime.fromisoformat(s["end_time"])
 
-            # Apply privacy policy to span attributes
+            # Sanitize name and error_message
+            if s.get("name"):
+                s["name"], _, _ = sanitize_payload(s["name"], policy_action)
+            if s.get("error_message"):
+                s["error_message"], _, _ = sanitize_payload(s["error_message"], policy_action)
+
+            # Apply privacy policy to span attributes and sanitize
             s["attributes"] = self._apply_privacy_to_dict(s.get("attributes"), mode)
+            s["attributes"], _, is_blocked = sanitize_payload(s["attributes"], policy_action)
+            if is_blocked and policy_action == SensitiveDataAction.BLOCK:
+                continue
 
             # If it's an LLM span, calculate cost and normalize error category
             if s["span_type"] == "LLM":

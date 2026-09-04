@@ -18,6 +18,10 @@ from app.core.metrics import MetricsMiddleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Phase 16 startup environment & configuration validation
+    from app.core.config_validation import validate_production_configuration
+    validate_production_configuration()
+
     # Phase 0 uses Alembic migrations for PostgreSQL; SQLite dev fallback is
     # created here only when explicitly configured (see config.is_sqlite).
     from app.db.session import init_models
@@ -69,6 +73,14 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
         expose_headers=["X-Request-Id"],
     )
+    from app.core.security_middleware import (
+        SecurityHeadersMiddleware,
+        RequestSizeLimitMiddleware,
+        RateLimitMiddleware,
+    )
+    app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(RequestSizeLimitMiddleware)
+    app.add_middleware(RateLimitMiddleware)
     app.add_middleware(RequestContextMiddleware)
     if settings.prometheus_enabled:
         app.add_middleware(MetricsMiddleware)

@@ -123,6 +123,14 @@ class DatasetService:
         require_capability(role, capability)
         return role
 
+    async def _require_project_access(self, org_id: UUID, project_id: UUID, user_id: UUID, capability: str):
+        from app.core.permissions import resolve_user_project_access
+        role, _ = await resolve_user_project_access(self._session, user_id, project_id, org_id)
+        if role is None:
+            raise ForbiddenError("You do not have access to this project.")
+        require_capability(role, capability)
+        return role
+
     async def _project_in_org(self, project_id: UUID, org_id: UUID) -> bool:
         project = await self._projects.get_by_id(project_id)
         return bool(project and project.organization_id == org_id)
@@ -166,7 +174,7 @@ class DatasetService:
         user_id: UUID,
         payload: DatasetCreate,
     ) -> DatasetResponse:
-        await self._require_member(organization_id, user_id, CAP_MANAGE_DATASETS)
+        await self._require_project_access(organization_id, project_id, user_id, CAP_MANAGE_DATASETS)
         if not await self._project_in_org(project_id, organization_id):
             raise NotFoundError("Project was not found.")
         dataset = await self._datasets.create(
@@ -195,7 +203,7 @@ class DatasetService:
         page: int = 1,
         page_size: int = 20,
     ) -> tuple[list[DatasetResponse], int]:
-        await self._require_member(organization_id, user_id, "view_all")
+        await self._require_project_access(organization_id, project_id, user_id, "view_all")
         if not await self._project_in_org(project_id, organization_id):
             raise NotFoundError("Project was not found.")
         datasets, total = await self._datasets.list_for_project(
@@ -207,8 +215,8 @@ class DatasetService:
     async def get(
         self, *, organization_id: UUID, dataset_id: UUID, user_id: UUID
     ) -> DatasetResponse:
-        await self._require_member(organization_id, user_id, "view_all")
         dataset = await self._get_dataset_in_org(dataset_id, organization_id)
+        await self._require_project_access(organization_id, dataset.project_id, user_id, "view_all")
         return await self._to_dataset_response(dataset, organization_id)
 
     async def update(
@@ -219,8 +227,8 @@ class DatasetService:
         user_id: UUID,
         payload: DatasetUpdate,
     ) -> DatasetResponse:
-        await self._require_member(organization_id, user_id, CAP_MANAGE_DATASETS)
         dataset = await self._get_dataset_in_org(dataset_id, organization_id)
+        await self._require_project_access(organization_id, dataset.project_id, user_id, CAP_MANAGE_DATASETS)
         if payload.name is not None:
             dataset.name = payload.name
         if payload.description is not None:
@@ -247,8 +255,8 @@ class DatasetService:
         Historical data and versions are retained and remain readable; an
         archived dataset cannot receive new versions.
         """
-        await self._require_member(organization_id, user_id, CAP_MANAGE_DATASETS)
         dataset = await self._get_dataset_in_org(dataset_id, organization_id)
+        await self._require_project_access(organization_id, dataset.project_id, user_id, CAP_MANAGE_DATASETS)
         dataset.status = "ARCHIVED"
         await self._audit.record(
             action="DATASET_ARCHIVED",

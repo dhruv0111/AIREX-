@@ -72,6 +72,14 @@ class ExperimentService:
         require_capability(role, capability)
         return role
 
+    async def _require_project_access(self, org_id: UUID, project_id: UUID, user_id: UUID, capability: str):
+        from app.core.permissions import resolve_user_project_access
+        role, _ = await resolve_user_project_access(self._session, user_id, project_id, org_id)
+        if role is None:
+            raise ForbiddenError("You do not have access to this project.")
+        require_capability(role, capability)
+        return role
+
     async def _project_in_org(self, project_id: UUID, org_id: UUID) -> bool:
         project = await self._projects.get_by_id(project_id)
         return bool(project and project.organization_id == org_id)
@@ -89,7 +97,7 @@ class ExperimentService:
     async def create(
         self, *, organization_id: UUID, user_id: UUID, payload: ExperimentCreate
     ) -> ExperimentResponse:
-        await self._require_member(organization_id, user_id, CAP_CREATE_EXPERIMENTS)
+        await self._require_project_access(organization_id, payload.project_id, user_id, CAP_CREATE_EXPERIMENTS)
 
         if not await self._project_in_org(payload.project_id, organization_id):
             raise NotFoundError("Project was not found.")
@@ -290,9 +298,9 @@ class ExperimentService:
     async def list_experiments(
         self, *, organization_id: UUID, project_id: UUID, user_id: UUID
     ) -> list[ExperimentResponse]:
-        await self._require_member(organization_id, user_id, CAP_VIEW_ALL)
         if not await self._project_in_org(project_id, organization_id):
             raise NotFoundError("Project was not found.")
+        await self._require_project_access(organization_id, project_id, user_id, CAP_VIEW_ALL)
 
         experiments = await self._repo.list_for_project(project_id)
         res = []
@@ -303,15 +311,15 @@ class ExperimentService:
     async def get(
         self, *, organization_id: UUID, experiment_id: UUID, user_id: UUID
     ) -> ExperimentResponse:
-        await self._require_member(organization_id, user_id, CAP_VIEW_ALL)
         exp = await self._get_experiment_in_org(experiment_id, organization_id)
+        await self._require_project_access(organization_id, exp.project_id, user_id, CAP_VIEW_ALL)
         return await self._to_experiment_response(exp)
 
     async def delete_experiment(
         self, *, organization_id: UUID, experiment_id: UUID, user_id: UUID
     ) -> None:
-        await self._require_member(organization_id, user_id, CAP_CREATE_EXPERIMENTS)
         exp = await self._get_experiment_in_org(experiment_id, org_id=organization_id)
+        await self._require_project_access(organization_id, exp.project_id, user_id, CAP_CREATE_EXPERIMENTS)
         
         await self._repo.delete(exp)
         await self._audit.record(
@@ -327,8 +335,8 @@ class ExperimentService:
     async def start_run(
         self, *, organization_id: UUID, experiment_id: UUID, user_id: UUID
     ) -> ExperimentRunResponse:
-        await self._require_member(organization_id, user_id, CAP_CREATE_EXPERIMENTS)
         exp = await self._get_experiment_in_org(experiment_id, org_id=organization_id)
+        await self._require_project_access(organization_id, exp.project_id, user_id, CAP_CREATE_EXPERIMENTS)
 
         # Create Run record
         run = await self._repo.create_run(experiment_id=exp.id, created_by=user_id)
@@ -354,7 +362,6 @@ class ExperimentService:
     async def cancel_run(
         self, *, organization_id: UUID, run_id: UUID, user_id: UUID
     ) -> ExperimentRunResponse:
-        await self._require_member(organization_id, user_id, CAP_CREATE_EXPERIMENTS)
         run = await self._repo.get_run_by_id(run_id)
         if run is None:
             raise NotFoundError("Experiment run was not found.")
@@ -362,6 +369,8 @@ class ExperimentService:
         exp = await self._repo.get_by_id(run.experiment_id)
         if exp is None or not await self._experiment_in_org(exp, organization_id):
             raise NotFoundError("Experiment run was not found.")
+
+        await self._require_project_access(organization_id, exp.project_id, user_id, CAP_CREATE_EXPERIMENTS)
 
         if run.status in ("COMPLETED", "FAILED", "CANCELLED"):
             raise ConflictError("Cannot cancel a completed or already cancelled run.")
@@ -400,15 +409,14 @@ class ExperimentService:
     async def list_runs(
         self, *, organization_id: UUID, experiment_id: UUID, user_id: UUID
     ) -> list[ExperimentRunResponse]:
-        await self._require_member(organization_id, user_id, CAP_VIEW_ALL)
         exp = await self._get_experiment_in_org(experiment_id, organization_id)
+        await self._require_project_access(organization_id, exp.project_id, user_id, CAP_VIEW_ALL)
         runs = await self._repo.list_runs_for_experiment(exp.id)
         return [self._to_run_response(r) for r in runs]
 
     async def get_comparisons(
         self, *, organization_id: UUID, run_id: UUID, user_id: UUID
     ) -> list[ComparisonResponse]:
-        await self._require_member(organization_id, user_id, CAP_VIEW_ALL)
         run = await self._repo.get_run_by_id(run_id)
         if run is None:
             raise NotFoundError("Experiment run was not found.")
@@ -416,13 +424,13 @@ class ExperimentService:
         if exp is None or not await self._experiment_in_org(exp, organization_id):
             raise NotFoundError("Experiment run was not found.")
 
+        await self._require_project_access(organization_id, exp.project_id, user_id, CAP_VIEW_ALL)
         comparisons = await self._repo.list_comparisons_for_run(run.id)
         return [self._to_comparison_response(c) for c in comparisons]
 
     async def get_regressions(
         self, *, organization_id: UUID, run_id: UUID, user_id: UUID
     ) -> list[RegressionResponse]:
-        await self._require_member(organization_id, user_id, CAP_VIEW_ALL)
         run = await self._repo.get_run_by_id(run_id)
         if run is None:
             raise NotFoundError("Experiment run was not found.")
@@ -430,19 +438,21 @@ class ExperimentService:
         if exp is None or not await self._experiment_in_org(exp, organization_id):
             raise NotFoundError("Experiment run was not found.")
 
+        await self._require_project_access(organization_id, exp.project_id, user_id, CAP_VIEW_ALL)
         regressions = await self._repo.list_regressions_for_run(run.id)
         return [self._to_regression_response(r) for r in regressions]
 
     async def get_gate_results(
         self, *, organization_id: UUID, run_id: UUID, user_id: UUID
     ) -> list[QualityGateResultResponse]:
-        await self._require_member(organization_id, user_id, CAP_VIEW_ALL)
         run = await self._repo.get_run_by_id(run_id)
         if run is None:
             raise NotFoundError("Experiment run was not found.")
         exp = await self._repo.get_by_id(run.experiment_id)
         if exp is None or not await self._experiment_in_org(exp, organization_id):
             raise NotFoundError("Experiment run was not found.")
+
+        await self._require_project_access(organization_id, exp.project_id, user_id, CAP_VIEW_ALL)
 
         results = await self._repo.list_gate_results_for_run(run.id)
         return [self._to_gate_result_response(g) for g in results]

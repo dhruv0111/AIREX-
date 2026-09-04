@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "test": "playwright test"
+    "test": "playwright test",
+    "demo": "playwright test tests/product_story_demo.spec.ts --config=playwright.demo.config.ts",
+    "demo:record": "playwright test tests/product_story_demo.spec.ts --config=playwright.demo.config.ts",
+    "demo:report": "playwright show-report playwright-report-demo"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",

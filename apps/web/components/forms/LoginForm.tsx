@@ -5,6 +5,7 @@ import { useState } from "react";
 import { api, ApiClientError, setAccessToken } from "@airex/api-client";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
+import { FormField, Input } from "@/components/ui/Input";
 
 export function LoginForm() {
   const router = useRouter();
@@ -20,9 +21,16 @@ export function LoginForm() {
     try {
       const res = await api.login(email, password);
       setAccessToken(res.data.access_token);
+      try {
+        const meRes = await api.me();
+        if (meRes.data?.memberships?.[0]?.organization_id) {
+          localStorage.setItem("airex.organization_id", meRes.data.memberships[0].organization_id);
+        }
+      } catch (_) {}
       router.push("/dashboard");
-    } catch (err) {
-      if (err instanceof ApiClientError) setError(err.message);
+    } catch (err: any) {
+      if (err?.message) setError(err.message);
+      else if (err instanceof ApiClientError) setError(err.message);
       else setError("Unable to sign in. Check that the API is running.");
     } finally {
       setLoading(false);
@@ -30,36 +38,46 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form onSubmit={onSubmit} className="space-y-4" data-testid="login-form">
       {error ? <Alert kind="error">{error}</Alert> : null}
-      <div>
-        <label htmlFor="email" className="mb-1 block text-sm font-medium">
-          Email
-        </label>
-        <input
+
+      <FormField label="Email" htmlFor="email" required>
+        <Input
           id="email"
           type="email"
           required
+          autoComplete="email"
+          placeholder="name@example.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded-md border border-slate-300 px-3 py-2"
+          data-testid="login-email"
         />
-      </div>
-      <div>
-        <label htmlFor="password" className="mb-1 block text-sm font-medium">
-          Password
-        </label>
-        <input
+      </FormField>
+
+      <FormField label="Password" htmlFor="password" required>
+        <Input
           id="password"
           type="password"
           required
+          autoComplete="current-password"
+          placeholder="••••••••"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded-md border border-slate-300 px-3 py-2"
+          data-testid="login-password"
         />
-      </div>
-      <Button type="submit" disabled={loading} className="w-full">
-        {loading ? "Signing in…" : "Sign in"}
+      </FormField>
+
+      <Button
+        type="submit"
+        disabled={loading}
+        isLoading={loading}
+        className="w-full mt-2"
+        data-testid="login-submit"
+        onClick={(e) => {
+          if (!email || !password) return;
+        }}
+      >
+        Sign in to AIREX
       </Button>
     </form>
   );

@@ -471,6 +471,22 @@ class ExperimentRunner:
             )
             airex_experiment_runs_total.labels(status="COMPLETED").inc()
             airex_experiments_total.inc()
+
+            # Automatically publish canonical compliance evidence (Phase 15)
+            if org_id is not None:
+                from app.services.evidence_service import publish_canonical_evidence
+                await publish_canonical_evidence(
+                    session=session,
+                    organization_id=org_id,
+                    source_type="experiment_run",
+                    source_id=str(run.id),
+                    project_id=project.id if project else None,
+                    metadata_summary={
+                        "overall_quality_gate": overall_gate_status,
+                        "regressions_count": len(regressions),
+                    },
+                )
+
             await session.commit()
 
         duration = time.perf_counter() - start

@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: airex-config
+data:
+  APP_ENV: "production"
+  APP_NAME: "airex-free"
+  LOG_LEVEL: "INFO"
+  WORKER_CONCURRENCY: "5"
+  API_CORS_ORIGINS: "http://localhost:3000,https://app.127.0.0.1.sslip.io,https://api.127.0.0.1.sslip.io"

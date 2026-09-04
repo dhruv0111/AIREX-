@@ -12,7 +12,11 @@
     "build": "npm run build -w apps/web",
     "lint": "npm run lint -w apps/web",
     "typecheck": "npm run typecheck -w apps/web",
-    "test": "npm run test -w apps/web"
+    "test": "npm run test -w apps/web",
+    "demo:prepare": "npm run typecheck -w apps/web && npm run build -w apps/web",
+    "demo:test": "npm --prefix tests/e2e run demo",
+    "demo:record": "npm --prefix tests/e2e run demo:record",
+    "demo:report": "npm --prefix tests/e2e run demo:report"
   },
   "engines": {
     "node": ">=18.17"

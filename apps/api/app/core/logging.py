@@ -31,8 +31,32 @@ class ContextFilter(logging.Filter):
         return True
 
 
+import re
+
+_LOG_SANITIZE_PATTERNS: list[tuple[re.Pattern, str]] = [
+    (re.compile(r"(?i)(bearer\s+)[A-Za-z0-9_\-\.]{10,}"), r"\1[REDACTED_TOKEN]"),
+    (re.compile(r"(?i)(password[\"']?\s*[:=]\s*[\"'])[^\"']+([\"'])"), r"\1[REDACTED_PASSWORD]\2"),
+    (re.compile(r"(?i)(api[_\-]?key[\"']?\s*[:=]\s*[\"'])[^\"']+([\"'])"), r"\1[REDACTED_KEY]\2"),
+    (re.compile(r"(?i)(secret[\"']?\s*[:=]\s*[\"'])[^\"']+([\"'])"), r"\1[REDACTED_SECRET]\2"),
+    (re.compile(r"sk-[a-zA-Z0-9]{20,}"), "[REDACTED_API_KEY]"),
+    (re.compile(r"ghp_[a-zA-Z0-9]{20,}"), "[REDACTED_TOKEN]"),
+    (re.compile(r"ey[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*"), "[REDACTED_JWT]"),
+]
+
+
+def sanitize_log_text(text: str) -> str:
+    """Sanitize sensitive credentials, API keys, and tokens from log messages and traces."""
+    if not text:
+        return text
+    sanitized = text
+    for pattern, repl in _LOG_SANITIZE_PATTERNS:
+        sanitized = pattern.sub(repl, sanitized)
+    return sanitized
+
+
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
+        msg = sanitize_log_text(record.getMessage())
         payload = {
             "timestamp": self.formatTime(record, "%Y-%m-%dT%H:%M:%SZ"),
             "level": record.levelname,
@@ -40,11 +64,17 @@ class JsonFormatter(logging.Formatter):
             "request_id": getattr(record, "request_id", "-"),
             "user_id": getattr(record, "user_id", "-"),
             "organization_id": getattr(record, "organization_id", "-"),
-            "message": record.getMessage(),
+            "message": msg,
         }
         if record.exc_info:
-            payload["exception"] = self.formatException(record.exc_info)
+            payload["exception"] = sanitize_log_text(self.formatException(record.exc_info))
         return json.dumps(payload)
+
+
+class SanitizedFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        s = super().format(record)
+        return sanitize_log_text(s)
 
 
 def setup_logging(level: str = "INFO", json_logs: bool = False) -> None:
@@ -60,7 +90,7 @@ def setup_logging(level: str = "INFO", json_logs: bool = False) -> None:
     handler.setFormatter(
         JsonFormatter()
         if json_logs
-        else logging.Formatter(
+        else SanitizedFormatter(
             "%(asctime)s %(levelname)s [%(service)s] req=%(request_id)s "
             "user=%(user_id)s org=%(organization_id)s %(message)s"
         )

@@ -72,6 +72,33 @@ async def client(session_factory):
     app.dependency_overrides.clear()
 
 
+@pytest_asyncio.fixture
+async def db_session(session_factory):
+    async with session_factory() as session:
+        yield session
+
+
+@pytest_asyncio.fixture
+async def auth_client(client: AsyncClient):
+    import uuid
+    email = f"admin-{uuid.uuid4().hex[:6]}@example.com"
+    reg_resp = await client.post(
+        "/api/v1/auth/register",
+        json={"name": "Test Admin", "email": email, "password": "Password123!"},
+    )
+    tokens = reg_resp.json()["data"]
+    access_token = tokens["access_token"]
+
+    me_resp = await client.get("/api/v1/organizations", headers={"Authorization": f"Bearer {access_token}"})
+    org_id = me_resp.json()["data"][0]["id"]
+
+    client.headers.update({
+        "Authorization": f"Bearer {access_token}",
+        "X-Organization-Id": org_id,
+    })
+    yield client
+
+
 @pytest.fixture
 def anyio_backend():
     return "asyncio"

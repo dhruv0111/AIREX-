@@ -8,12 +8,23 @@ AIREX is a production-grade platform for testing, evaluating, monitoring, and be
 >
 > **Phase 8 — Production AI Observability & Alerting.** Now implemented: batched trace/span ingestion, async queue processing, deduplication, sampling, privacy modes (`METADATA_ONLY` / `HASHED_CONTENT` / `FULL_CONTENT`), retention policies, a versioned model pricing cost engine, an observability dashboard, trace explorer + trace detail with span hierarchy, model/provider/cost/latency dashboards, quality signals, an alert engine (threshold → trigger → deduplicate → resolve) with HMAC-signed webhook notifications, RBAC, multi-tenant isolation, audit events, Prometheus metrics, and the official Python SDK (`packages/airex-python`).
 
+## 🚀 Quick Access (Live Development Servers)
+
+| Service | Local URL | Description |
+| :--- | :--- | :--- |
+| **Frontend Web App** | [http://localhost:3000](http://localhost:3000) | Next.js 15 UI Dashboard & Admin Portal |
+| **Backend REST API** | [http://localhost:8000](http://localhost:8000) | FastAPI Core Service |
+| **Interactive API Docs** | [http://localhost:8000/docs](http://localhost:8000/docs) | Interactive Swagger UI Explorer |
+| **Health Probe** | [http://localhost:8000/health/ready](http://localhost:8000/health/ready) | System & Database Readiness |
+| **Platform User Guide** | [docs/USER_GUIDE.md](docs/USER_GUIDE.md) | Complete Feature Walkthrough & Manual |
+
 ---
 
 ## Table of Contents
 
+- [Quick Access](#-quick-access-live-development-servers)
 - [Project Overview](#project-overview)
-- [End-to-End User Guide](docs/development/USER_GUIDE.md)
+- [Platform User Guide](docs/USER_GUIDE.md)
 - [Architecture](#architecture)
 - [Technology Stack](#technology-stack)
 - [Prerequisites](#prerequisites)

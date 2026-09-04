@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     app_env: str = "development"
     app_name: str = "airex"
     app_version: str = "0.1.0"
+
+    # Database connection pool (Phase 15 hardening)
+    db_pool_size: int = 20
+    db_max_overflow: int = 30
+    db_pool_timeout: int = 30
+    db_pool_recycle: int = 1800
 
     # API
     api_host: str = "0.0.0.0"
@@ -92,12 +98,42 @@ class Settings(BaseSettings):
     generation_timeout_seconds: int = 60
     generation_stale_timeout_seconds: int = 600
 
+    # ---- Phase 16: worker resilience, operational thresholds & DR ----
+    worker_max_retries: int = 3
+    worker_retry_backoff_base: float = 2.0
+    worker_task_timeout_seconds: int = 300
+    alert_threshold_error_rate: float = 0.05
+    alert_threshold_p95_latency_ms: float = 2000.0
+    alert_threshold_queue_backlog: int = 100
+    alert_threshold_dlq_size: int = 10
+    alert_threshold_db_pool_utilization: float = 0.85
+    alert_dedup_window_seconds: int = 300
+    backup_retention_days: int = 30
+    backup_rpo_target_seconds: int = 3600
+    backup_rto_target_seconds: int = 1800
+
     @field_validator("jwt_secret_key")
     @classmethod
     def _jwt_secret_not_empty(cls, v: str) -> str:
         if not v:
             raise ValueError("JWT_SECRET_KEY must not be empty")
         return v
+
+    @model_validator(mode="after")
+    def _validate_production_secrets(self) -> Settings:
+        if self.app_env.lower() == "production":
+            insecure_defaults = {
+                "change-me-to-a-long-random-secret",
+                "secret",
+                "default",
+                "",
+                "airex_production_super_secret_jwt_key_minimum_32_bytes_long",
+            }
+            if self.jwt_secret_key in insecure_defaults or len(self.jwt_secret_key) < 32:
+                raise ValueError("Insecure default or insufficient JWT_SECRET_KEY is forbidden in production environment.")
+            if not self.credential_encryption_key:
+                raise ValueError("CREDENTIAL_ENCRYPTION_KEY must be configured in production environment.")
+        return self
 
     @field_validator("api_cors_origins")
     @classmethod

@@ -9,6 +9,10 @@ import { AppShell } from "@/components/AppShell";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { FormField, Input, Select } from "@/components/ui/Input";
+import { Badge, StatusBadge } from "@/components/ui/Badge";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/Table";
 
 const EVALUATOR_TYPES = [
   "exact_match",
@@ -36,7 +40,6 @@ export default function EvaluationsPage() {
   const [maxConcurrency, setMaxConcurrency] = useState("4");
   const [timeoutSeconds, setTimeoutSeconds] = useState("30");
   const [stopOnError, setStopOnError] = useState(false);
-  // Phase 4 — LLM judge + combined scoring.
   const [judgeModelId, setJudgeModelId] = useState("");
   const [rubricId, setRubricId] = useState("");
   const [threshold, setThreshold] = useState("0.75");
@@ -47,7 +50,7 @@ export default function EvaluationsPage() {
     queryFn: () => api.listEvaluations(projectId, { page: 1, page_size: 50 }),
     refetchInterval: (query) => {
       const active = query.state.data?.data.some((r) => r.status === "QUEUED" || r.status === "RUNNING");
-      return active ? 3000 : false;
+      return active ? 2000 : false;
     },
   });
 
@@ -105,10 +108,6 @@ export default function EvaluationsPage() {
         },
       }),
     onSuccess: () => {
-      setEnvironmentId("");
-      setModelId("");
-      setDatasetId("");
-      setVersionId("");
       setError(null);
       queryClient.invalidateQueries({ queryKey: ["evaluations", projectId] });
     },
@@ -121,117 +120,155 @@ export default function EvaluationsPage() {
       (evaluatorType !== "llm_judge" || (judgeModelId && rubricId)),
   );
 
+  const evalList = evaluations.data?.data ?? [];
+
   return (
     <AppShell>
-      <Link href={`/projects/${projectId}`} className="text-sm text-brand hover:underline">
-        ← Project
-      </Link>
-      <h1 className="mt-2 mb-6 text-2xl font-bold text-slate-900">Evaluations</h1>
-      {error ? <Alert kind="error" className="mb-4">{error}</Alert> : null}
+      <div className="space-y-6" data-testid="evaluations-view">
+        {/* Page Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 pb-5">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 mb-1">
+              <Link href={`/projects/${projectId}`} className="hover:text-slate-900 transition">
+                ← Back to Project
+              </Link>
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+              Evaluations & Regression Quality Gates
+            </h1>
+            <p className="mt-1 text-sm text-slate-500">
+              Execute test suites against AI models and compare outputs with exact, fuzzy, schema, and LLM-judge scorers.
+            </p>
+          </div>
+        </div>
 
-      <Card title="Run an evaluation" className="mb-6">
-        <div className="grid gap-3 md:grid-cols-2">
-          <label className="flex flex-col gap-1 text-sm text-slate-600">
-            Environment (optional)
-            <select
-              value={environmentId}
-              onChange={(e) => setEnvironmentId(e.target.value)}
-              className="rounded-md border border-slate-300 px-3 py-2"
-            >
-              <option value="">— none —</option>
-              {(environments.data?.data ?? []).map((env) => (
-                <option key={env.id} value={env.id}>
-                  {env.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-sm text-slate-600">
-            Model
-            <select
-              value={modelId}
-              onChange={(e) => setModelId(e.target.value)}
-              className="rounded-md border border-slate-300 px-3 py-2"
-            >
-              <option value="">Select a model…</option>
-              {(models.data?.data ?? []).map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-sm text-slate-600">
-            Dataset
-            <select
-              value={datasetId}
-              onChange={(e) => {
-                setDatasetId(e.target.value);
-                setVersionId("");
-              }}
-              className="rounded-md border border-slate-300 px-3 py-2"
-            >
-              <option value="">Select a dataset…</option>
-              {(datasets.data?.data ?? []).map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-sm text-slate-600">
-            Dataset version (immutable)
-            <select
-              value={versionId}
-              onChange={(e) => setVersionId(e.target.value)}
-              disabled={!datasetId}
-              className="rounded-md border border-slate-300 px-3 py-2 disabled:bg-slate-50"
-            >
-              <option value="">Select a version…</option>
-              {(versions.data?.data ?? []).map((v) => (
-                <option key={v.id} value={v.id}>
-                  v{v.version_number} ({v.record_count} records)
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-sm text-slate-600">
-            Evaluator
-            <select
-              value={evaluatorType}
-              onChange={(e) => setEvaluatorType(e.target.value)}
-              className="rounded-md border border-slate-300 px-3 py-2"
-            >
-              {EVALUATOR_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          </label>
-          {evaluatorType === "llm_judge" ? (
-            <>
-              <label className="flex flex-col gap-1 text-sm text-slate-600">
-                Judge model
-                <select
+        {error ? <Alert kind="error">{error}</Alert> : null}
+
+        {/* Run Evaluation Card */}
+        <Card
+          title="Run Automated Evaluation"
+          subtitle="Configure target model, immutable dataset version, and scoring rules"
+          className="shadow-sm"
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <FormField label="Target AI Model" htmlFor="emodel" required>
+              <Select
+                id="emodel"
+                value={modelId}
+                onChange={(e) => setModelId(e.target.value)}
+                data-testid="eval-model-select"
+              >
+                <option value="">Select a model…</option>
+                {(models.data?.data ?? []).map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} ({m.model_identifier})
+                  </option>
+                ))}
+              </Select>
+            </FormField>
+
+            <FormField label="Test Dataset" htmlFor="edataset" required>
+              <Select
+                id="edataset"
+                value={datasetId}
+                onChange={(e) => {
+                  setDatasetId(e.target.value);
+                  setVersionId("");
+                }}
+                data-testid="eval-dataset-select"
+              >
+                <option value="">Select a dataset…</option>
+                {(datasets.data?.data ?? []).map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name} ({d.record_count} records)
+                  </option>
+                ))}
+              </Select>
+            </FormField>
+
+            <FormField label="Dataset Version (Immutable)" htmlFor="eversion" required>
+              <Select
+                id="eversion"
+                value={versionId}
+                onChange={(e) => setVersionId(e.target.value)}
+                disabled={!datasetId}
+                data-testid="eval-version-select"
+              >
+                <option value="">Select a version…</option>
+                {(versions.data?.data ?? []).map((v) => (
+                  <option key={v.id} value={v.id}>
+                    v{v.version_number} ({v.record_count} records)
+                  </option>
+                ))}
+              </Select>
+            </FormField>
+
+            <FormField label="Evaluator Type" htmlFor="etype" required>
+              <Select
+                id="etype"
+                value={evaluatorType}
+                onChange={(e) => setEvaluatorType(e.target.value)}
+                data-testid="eval-type-select"
+              >
+                {EVALUATOR_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t.replace(/_/g, " ")}
+                  </option>
+                ))}
+              </Select>
+            </FormField>
+
+            <FormField label="Target Environment (Optional)" htmlFor="eenv">
+              <Select
+                id="eenv"
+                value={environmentId}
+                onChange={(e) => setEnvironmentId(e.target.value)}
+              >
+                <option value="">— none (Default) —</option>
+                {(environments.data?.data ?? []).map((env) => (
+                  <option key={env.id} value={env.id}>
+                    {env.name} ({env.environment_type})
+                  </option>
+                ))}
+              </Select>
+            </FormField>
+
+            <FormField label="Pass Policy" htmlFor="epolicy">
+              <Select
+                id="epolicy"
+                value={passPolicy}
+                onChange={(e) => setPassPolicy(e.target.value)}
+              >
+                <option value="ALL">ALL (Strict: 100% Pass)</option>
+                <option value="ANY">ANY (Tolerant)</option>
+                <option value="WEIGHTED">WEIGHTED (Score Threshold)</option>
+              </Select>
+            </FormField>
+          </div>
+
+          {/* LLM Judge Options */}
+          {evaluatorType === "llm_judge" && (
+            <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <FormField label="Judge Model" htmlFor="jmodel" required>
+                <Select
+                  id="jmodel"
                   value={judgeModelId}
                   onChange={(e) => setJudgeModelId(e.target.value)}
-                  className="rounded-md border border-slate-300 px-3 py-2"
                 >
-                  <option value="">Select a judge model…</option>
+                  <option value="">Select judge model…</option>
                   {(models.data?.data ?? []).map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.name}
                     </option>
                   ))}
-                </select>
-              </label>
-              <label className="flex flex-col gap-1 text-sm text-slate-600">
-                Rubric
-                <select
+                </Select>
+              </FormField>
+
+              <FormField label="Rubric" htmlFor="jrubric" required>
+                <Select
+                  id="jrubric"
                   value={rubricId}
                   onChange={(e) => setRubricId(e.target.value)}
-                  className="rounded-md border border-slate-300 px-3 py-2"
                 >
                   <option value="">Select a rubric…</option>
                   {(rubrics.data?.data ?? [])
@@ -241,131 +278,124 @@ export default function EvaluationsPage() {
                         {r.name} v{r.version}
                       </option>
                     ))}
-                </select>
-              </label>
-              <label className="flex flex-col gap-1 text-sm text-slate-600">
-                Threshold (0–1)
-                <input
+                </Select>
+              </FormField>
+
+              <FormField label="Score Threshold (0–1)" htmlFor="jthresh">
+                <Input
+                  id="jthresh"
                   type="number"
                   min={0}
                   max={1}
                   step={0.05}
                   value={threshold}
                   onChange={(e) => setThreshold(e.target.value)}
-                  className="rounded-md border border-slate-300 px-3 py-2"
                 />
-              </label>
-            </>
-          ) : null}
-          <label className="flex flex-col gap-1 text-sm text-slate-600">
-            Pass policy
-            <select
-              value={passPolicy}
-              onChange={(e) => setPassPolicy(e.target.value)}
-              className="rounded-md border border-slate-300 px-3 py-2"
-            >
-              <option value="ALL">ALL</option>
-              <option value="ANY">ANY</option>
-              <option value="WEIGHTED">WEIGHTED</option>
-            </select>
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-1 text-sm text-slate-600">
-              Max concurrency
-              <input
-                type="number"
-                min={1}
-                max={50}
-                value={maxConcurrency}
-                onChange={(e) => setMaxConcurrency(e.target.value)}
-                className="rounded-md border border-slate-300 px-3 py-2"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm text-slate-600">
-              Timeout (s)
-              <input
-                type="number"
-                min={1}
-                max={600}
-                value={timeoutSeconds}
-                onChange={(e) => setTimeoutSeconds(e.target.value)}
-                className="rounded-md border border-slate-300 px-3 py-2"
-              />
-            </label>
-          </div>
-          <label className="flex items-center gap-2 text-sm text-slate-600">
-            <input
-              type="checkbox"
-              checked={stopOnError}
-              onChange={(e) => setStopOnError(e.target.checked)}
-            />
-            Stop on first error
-          </label>
-        </div>
-        <div className="mt-4">
-          <Button
-            onClick={() => createMutation.mutate()}
-            disabled={createMutation.isPending || !canCreate}
-          >
-            {createMutation.isPending ? "Creating…" : "Run evaluation"}
-          </Button>
-        </div>
-      </Card>
+              </FormField>
+            </div>
+          )}
 
-      {evaluations.isLoading ? (
-        <Card><p className="text-sm text-slate-400">Loading evaluations…</p></Card>
-      ) : evaluations.isError ? (
-        <Card><Alert kind="error">{(evaluations.error as Error).message}</Alert></Card>
-      ) : !evaluations.data?.data.length ? (
-        <Card><p className="text-sm text-slate-500">No evaluations yet.</p></Card>
-      ) : (
-        <Card>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b text-left text-slate-500">
-                <th className="py-2 pr-4">Status</th>
-                <th className="py-2 pr-4">Progress</th>
-                <th className="py-2 pr-4">Pass / Fail / Error</th>
-                <th className="py-2 pr-4">Created</th>
-                <th className="py-2">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {evaluations.data.data.map((r) => (
-                <tr key={r.id} className="border-b">
-                  <td className="py-2 pr-4">
-                    <span
-                      className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-                        r.status === "COMPLETED"
-                          ? "bg-green-100 text-green-700"
-                          : r.status === "FAILED"
-                            ? "bg-red-100 text-red-700"
-                            : "bg-slate-100 text-slate-700"
-                      }`}
-                    >
-                      {r.status}
-                    </span>
-                  </td>
-                  <td className="py-2 pr-4 text-slate-600">
-                    {r.completed_tests}/{r.total_tests}
-                  </td>
-                  <td className="py-2 pr-4 text-slate-600">
-                    {r.passed_tests} / {r.failed_tests} / {r.error_tests}
-                  </td>
-                  <td className="py-2 pr-4 text-slate-500">
-                    {new Date(r.created_at).toLocaleString()}
-                  </td>
-                  <td className="py-2">
-                    <Link href={`/projects/${projectId}/evaluations/${r.id}`}>
-                      <Button variant="secondary">View</Button>
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="mt-5 flex items-center justify-between pt-2 border-t border-slate-100">
+            <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={stopOnError}
+                onChange={(e) => setStopOnError(e.target.checked)}
+                className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+              />
+              <span>Fail fast (stop execution on first error)</span>
+            </label>
+
+            <Button
+              onClick={() => createMutation.mutate()}
+              disabled={createMutation.isPending || !canCreate}
+              isLoading={createMutation.isPending}
+              data-testid="start-evaluation-btn"
+            >
+              Start Evaluation Run
+            </Button>
+          </div>
         </Card>
-      )}
+
+        {/* Evaluation Runs History */}
+        <Card title={`Evaluation Runs (${evalList.length})`} className="shadow-sm">
+          {evaluations.isLoading ? (
+            <div className="p-8 text-center text-slate-400">Loading evaluations…</div>
+          ) : evalList.length === 0 ? (
+            <EmptyState
+              title="No evaluations executed yet"
+              description="Configure and launch an evaluation above to benchmark accuracy, latency, and quality gates."
+            />
+          ) : (
+            <Table>
+              <TableHeader>
+                <tr>
+                  <TableHead>Run ID / Status</TableHead>
+                  <TableHead>Progress</TableHead>
+                  <TableHead>Pass / Fail / Error</TableHead>
+                  <TableHead>Execution Time</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </tr>
+              </TableHeader>
+              <TableBody>
+                {evalList.map((r) => {
+                  const passPercent =
+                    r.total_tests > 0 ? Math.round((r.passed_tests / r.total_tests) * 100) : 0;
+                  return (
+                    <TableRow key={r.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <StatusBadge status={r.status} />
+                          <span className="font-mono text-xs text-slate-500">
+                            {r.id.slice(0, 8)}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-xs text-slate-600 font-mono">
+                            <span>{r.completed_tests}/{r.total_tests}</span>
+                            <span>{passPercent}%</span>
+                          </div>
+                          <div className="h-1.5 w-32 rounded-full bg-slate-100 overflow-hidden">
+                            <div
+                              className="h-full bg-brand-600 transition-all duration-300"
+                              style={{ width: `${r.total_tests ? (r.completed_tests / r.total_tests) * 100 : 0}%` }}
+                            />
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2 font-mono text-xs">
+                          <span className="text-emerald-700 font-semibold">{r.passed_tests} pass</span>
+                          <span className="text-slate-300">/</span>
+                          <span className="text-rose-700 font-semibold">{r.failed_tests} fail</span>
+                          <span className="text-slate-300">/</span>
+                          <span className="text-amber-700">{r.error_tests} err</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs font-mono text-slate-600">
+                        {r.status === "COMPLETED" ? "Deterministic" : "Active"}
+                      </TableCell>
+                      <TableCell className="text-xs text-slate-500 font-mono">
+                        {new Date(r.created_at).toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Link href={`/projects/${projectId}/evaluations/${r.id}`}>
+                          <Button variant="secondary" size="sm" data-testid={`view-eval-${r.id}`}>
+                            View Analysis →
+                          </Button>
+                        </Link>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </Card>
+      </div>
     </AppShell>
   );
 }

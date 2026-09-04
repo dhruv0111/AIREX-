@@ -67,12 +67,12 @@ async def ingest_observability(
     if hasattr(request.state, "is_service_token") and request.state.is_service_token:
         project_id = request.state.service_token_project_id
     else:
-        project_id_hdr = request.headers.get("X-Project-Id")
+        project_id_hdr = request.headers.get("X-Project-Id") or request.query_params.get("project_id")
         if project_id_hdr:
             try:
                 project_id = UUID(project_id_hdr)
             except ValueError:
-                raise ValidationFailure("Invalid X-Project-Id header.")
+                raise ValidationFailure("Invalid X-Project-Id or project_id parameter.")
 
     if not project_id:
         raise ValidationFailure("Missing target Project context.")
@@ -80,6 +80,11 @@ async def ingest_observability(
     project = await db.get(Project, project_id)
     if not project:
         raise ValidationFailure("Project not found.")
+
+    from app.core.permissions import resolve_user_project_access
+    role, _ = await resolve_user_project_access(db, user.id, project_id, project.organization_id)
+    if role is None:
+        raise ForbiddenError("You do not have access to this project.")
 
     # 3. Asynchronously queue payload for ingestion processing
     job_payload = {
@@ -118,6 +123,7 @@ async def get_observability_overview(
     end_time: str | None = Query(None),
     user: User = Depends(deps.get_current_user),
     db: AsyncSession = Depends(get_db),
+    _role: Role = Depends(deps.require_project_capability("view_all")),
 ):
     """Retrieve aggregated overview metrics for production tracing dashboard."""
     start, end = _resolve_time_range(start_time, end_time)
@@ -133,6 +139,7 @@ async def get_observability_models(
     end_time: str | None = Query(None),
     user: User = Depends(deps.get_current_user),
     db: AsyncSession = Depends(get_db),
+    _role: Role = Depends(deps.require_project_capability("view_all")),
 ):
     """Per-model breakdown: requests, success/error rate, latency, tokens, cost."""
     start, end = _resolve_time_range(start_time, end_time)
@@ -148,6 +155,7 @@ async def get_observability_providers(
     end_time: str | None = Query(None),
     user: User = Depends(deps.get_current_user),
     db: AsyncSession = Depends(get_db),
+    _role: Role = Depends(deps.require_project_capability("view_all")),
 ):
     """Per-provider breakdown: requests, success/error rate, latency, tokens, cost."""
     start, end = _resolve_time_range(start_time, end_time)
@@ -163,6 +171,7 @@ async def get_observability_cost(
     end_time: str | None = Query(None),
     user: User = Depends(deps.get_current_user),
     db: AsyncSession = Depends(get_db),
+    _role: Role = Depends(deps.require_project_capability("view_all")),
 ):
     """Cost dashboard: total cost, cost/request, and breakdowns by model/provider/environment."""
     start, end = _resolve_time_range(start_time, end_time)
@@ -178,6 +187,7 @@ async def get_observability_latency(
     end_time: str | None = Query(None),
     user: User = Depends(deps.get_current_user),
     db: AsyncSession = Depends(get_db),
+    _role: Role = Depends(deps.require_project_capability("view_all")),
 ):
     """Latency dashboard: p50/p90/p95/p99, average and max."""
     start, end = _resolve_time_range(start_time, end_time)
@@ -200,6 +210,7 @@ async def get_observability_settings(
     project_id: UUID,
     user: User = Depends(deps.get_current_user),
     db: AsyncSession = Depends(get_db),
+    _role: Role = Depends(deps.require_project_capability("view_all")),
 ):
     """Return the project's observability privacy/retention/sampling settings."""
     project = await db.get(Project, project_id)
@@ -223,24 +234,16 @@ async def update_observability_settings(
     user: User = Depends(deps.get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Update observability privacy/retention/sampling settings for a project.
-
-    Defaults to privacy-safe behavior: METADATA_ONLY, no fabricated cost, and
-    bounded sample rates (0.0..1.0).
-    """
+    """Update observability privacy/retention/sampling settings for a project."""
     project = await db.get(Project, project_id)
     if not project:
         raise NotFoundError("Project not found.")
 
-    # RBAC: require write access (non-viewer) for configuration changes
-    from app.core.permissions import Role
-    from app.services.organization import OrganizationService
-    org_service = OrganizationService(db)
-    role = await org_service.resolve_membership(org_id=project.organization_id, user_id=user.id)
+    from app.core.permissions import resolve_user_project_access, require_capability, CAP_MANAGE_PROJECTS
+    role, _ = await resolve_user_project_access(db, user.id, project_id, project.organization_id)
     if role is None:
-        raise ForbiddenError("You do not have access to this organization.")
-    if role == Role.VIEWER:
-        raise ForbiddenError("Viewer cannot modify observability settings.")
+        raise ForbiddenError("You do not have access to this project.")
+    require_capability(role, CAP_MANAGE_PROJECTS)
 
     settings = dict(project.settings or {})
 
@@ -315,6 +318,7 @@ async def list_traces(
     offset: int = Query(0, ge=0),
     user: User = Depends(deps.get_current_user),
     db: AsyncSession = Depends(get_db),
+    _role: Role = Depends(deps.require_project_capability("view_all")),
 ):
     """List paginated traces with filtering query capabilities."""
     start = datetime.fromisoformat(start_time) if start_time else None
@@ -344,19 +348,11 @@ async def get_trace_details(
     db: AsyncSession = Depends(get_db),
 ):
     """Retrieve full trace duration details along with its sorted span hierarchy tree."""
-    # Since trace details does not have project_id in its URL path parameters,
-    # we enforce project boundary isolation inside the service by verifying ownership.
     service = ObservabilityService(db)
     
-    # We load trace details
-    # We must determine project boundaries (user must have access to project)
-    # To keep it generic and safe, we load it, then verify project access:
-    # Get project_id from trace model
-    # (Since get_trace_detail raises NotFoundError if trace is missing, we let it fetch first)
     from app.repositories.project import ProjectRepository
     project_repo = ProjectRepository(db)
     
-    # We query traces table for client ID
     from sqlalchemy import select
     from app.models.trace import Trace
     stmt = select(Trace).where(Trace.trace_id == trace_id)
@@ -367,29 +363,24 @@ async def get_trace_details(
         from app.core.errors import NotFoundError
         raise NotFoundError("Trace not found.")
 
-    # Validate User has access to the Trace's project
-    # If it is a service token request, verify target token matches the trace's project
     if hasattr(request.state, "is_service_token") and request.state.is_service_token:
         if trace.project_id != request.state.service_token_project_id:
             raise ForbiddenError("Service token project boundary mismatch.")
     else:
-        # User session validation: verify project membership
-        from app.services.organization import OrganizationService
-        org_service = OrganizationService(db)
-        # Check that user can read the project
         project_obj = await project_repo.get_by_id(trace.project_id)
         if not project_obj:
             raise NotFoundError("Project not found.")
         
-        # User role resolution
-        role = await org_service.resolve_membership(
-            org_id=project_obj.organization_id,
+        from app.core.permissions import resolve_user_project_access
+        role, _ = await resolve_user_project_access(
+            session=db,
             user_id=user.id,
+            project_id=trace.project_id,
+            org_id=project_obj.organization_id,
         )
         if role is None:
-            raise ForbiddenError("You do not have access to this organization.")
+            raise ForbiddenError("You do not have access to this project.")
 
-    # Let the service load full tree details
     return await service.get_trace_detail(trace.project_id, trace_id)
 
 
@@ -399,6 +390,7 @@ async def record_trace_quality_signals(
     payload: dict,
     user: User = Depends(deps.get_current_user),
     db: AsyncSession = Depends(get_db),
+    _role: Role = Depends(deps.require_project_capability("view_all")),
 ):
     """Submit quality signals and feed feedback parameters into trace metadata."""
     trace_id = payload.get("trace_id")

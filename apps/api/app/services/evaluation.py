@@ -75,6 +75,14 @@ class EvaluationService:
         require_capability(role, capability)
         return role
 
+    async def _require_project_access(self, org_id: UUID, project_id: UUID, user_id: UUID, capability: str):
+        from app.core.permissions import resolve_user_project_access
+        role, _ = await resolve_user_project_access(self._session, user_id, project_id, org_id)
+        if role is None:
+            raise ForbiddenError("You do not have access to this project.")
+        require_capability(role, capability)
+        return role
+
     async def _project_in_org(self, project_id: UUID, org_id: UUID) -> bool:
         project = await self._projects.get_by_id(project_id)
         return bool(project and project.organization_id == org_id)
@@ -92,7 +100,7 @@ class EvaluationService:
     async def create(
         self, *, organization_id: UUID, user_id: UUID, payload: EvaluationCreate
     ) -> EvaluationResponse:
-        await self._require_member(organization_id, user_id, CAP_RUN_EVALUATIONS)
+        await self._require_project_access(organization_id, payload.project_id, user_id, CAP_RUN_EVALUATIONS)
 
         # Validate evaluator types against the registry (§14, §22).
         for evaluator in payload.configuration.evaluators:
@@ -250,11 +258,11 @@ class EvaluationService:
     ) -> tuple[list[EvaluationResponse], int]:
         """List evaluation runs for a project (named ``list_runs`` to avoid
         shadowing the builtin ``list`` in class-scope annotations)."""
-        await self._require_member(organization_id, user_id, "view_all")
         if project_id is not None and not await self._project_in_org(project_id, organization_id):
             raise NotFoundError("Project was not found.")
         if project_id is None:
             return [], 0
+        await self._require_project_access(organization_id, project_id, user_id, "view_all")
         runs, total = await self._runs.list_for_project(
             project_id,
             page=page,
@@ -268,8 +276,8 @@ class EvaluationService:
     async def get(
         self, *, organization_id: UUID, run_id: UUID, user_id: UUID
     ) -> EvaluationResponse:
-        await self._require_member(organization_id, user_id, "view_all")
         run = await self._get_run_in_org(run_id, organization_id)
+        await self._require_project_access(organization_id, run.project_id, user_id, "view_all")
         return self._to_run_response(run)
 
     async def results(
@@ -283,8 +291,8 @@ class EvaluationService:
         status: str | None = None,
         failure_type: str | None = None,
     ) -> tuple[list[EvaluationResultResponse], int]:
-        await self._require_member(organization_id, user_id, "view_all")
-        await self._get_run_in_org(run_id, organization_id)
+        run = await self._get_run_in_org(run_id, organization_id)
+        await self._require_project_access(organization_id, run.project_id, user_id, "view_all")
         results, total = await self._results.list_for_run(
             run_id, page=page, page_size=page_size, status=status, failure_type=failure_type
         )
@@ -295,8 +303,8 @@ class EvaluationService:
         self, *, organization_id: UUID, run_id: UUID, user_id: UUID
     ) -> EvaluationResponse:
         """POST /evaluations/{id}/run — explicitly (re)queue a QUEUED run (§25)."""
-        await self._require_member(organization_id, user_id, CAP_RUN_EVALUATIONS)
         run = await self._get_run_in_org(run_id, organization_id)
+        await self._require_project_access(organization_id, run.project_id, user_id, CAP_RUN_EVALUATIONS)
         if run.status != "QUEUED":
             raise ConflictError("Only queued evaluations can be started.")
         await _enqueue("run_evaluation", {"evaluation_run_id": str(run.id)})
@@ -305,8 +313,8 @@ class EvaluationService:
     async def cancel(
         self, *, organization_id: UUID, run_id: UUID, user_id: UUID
     ) -> EvaluationResponse:
-        await self._require_member(organization_id, user_id, CAP_RUN_EVALUATIONS)
         run = await self._get_run_in_org(run_id, organization_id)
+        await self._require_project_access(organization_id, run.project_id, user_id, CAP_RUN_EVALUATIONS)
         validate_transition(run.status, "CANCELLED")
         await self._runs.set_status(run, "CANCELLED")
         await self._audit.record(

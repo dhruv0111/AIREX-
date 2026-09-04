@@ -1,0 +1,222 @@
+{
+  "execution_timestamp": "2026-09-04T11:48:35.187945+00:00",
+  "run_id": "15102878-7e52-4950-b571-c7ff7f322537",
+  "status": "COMPLETED",
+  "provider": {
+    "id": "5d85c2a1-0aa8-4416-9d59-6129a554e367",
+    "name": "Anthropic Production Provider",
+    "provider_type": "ANTHROPIC",
+    "base_url": "https://api.anthropic.com"
+  },
+  "model": {
+    "id": "917d2029-3de2-4db7-9734-7ea395e6907b",
+    "name": "Claude-Haiku-4.5-Customer-Support",
+    "model_identifier": "claude-haiku-4-5-20251001",
+    "configuration": {
+      "temperature": 0.2,
+      "max_tokens": 256
+    }
+  },
+  "dataset": {
+    "id": "3d7581c4-897f-45d0-901a-168477c87600",
+    "name": "Customer Support Live Benchmark Dataset",
+    "version_number": 1,
+    "record_count": 4
+  },
+  "metrics": {
+    "total_tests": 4,
+    "passed": 4,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "pass_rate": 1.0,
+    "fail_rate": 0.0,
+    "error_rate": 0.0,
+    "average_latency_ms": 4301.25,
+    "p50_latency_ms": 4114.0,
+    "p95_latency_ms": 5018.75,
+    "total_input_tokens": 355,
+    "total_output_tokens": 719,
+    "total_tokens": 1074,
+    "evaluators": {
+      "contains": {
+        "count": 4,
+        "passed": 4,
+        "failed": 0,
+        "pass_rate": 1.0,
+        "average_score": 1.0
+      }
+    }
+  },
+  "results_count": 4,
+  "test_cases_results": [
+    {
+      "test_case_id": "cfee99e6-04aa-47c7-b827-1ab9a51dbb44",
+      "status": "PASS",
+      "failure_type": null,
+      "failure_message": null,
+      "latency_ms": 4207,
+      "input_tokens": 90,
+      "output_tokens": 180,
+      "total_tokens": 270,
+      "actual_output": "# Refund Policy\n\nThank you for your question! Here's our refund policy for unopened items:\n\n**We offer full refunds for unopened items returned within 30 days of purchase.**\n\nTo process your return:\n1. Ensure the item is unopened and in original condition\n2. Contact our support team with your order number\n3. Follow the return shipping instructions we provide\n4. Once we receive and inspect your return, we'll process your refund\n\n**Additional helpful information:**\n- You can track your return shipment using the tracking number we'll provide\n- Refunds are typically processed within 5-7 business days after we receive your item\n- If you have questions about a specific order, please have your order number ready\n\nIs there anything else I can help you with regarding returns or our policies?",
+      "score": [
+        {
+          "evaluator": "contains",
+          "version": "1.0.0",
+          "score": 1.0,
+          "passed": true,
+          "reason": "Expected substring found in output.",
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "test_case_id": "1e25a38b-dfa3-4d2b-bbc6-551bb03dfc90",
+      "status": "PASS",
+      "failure_type": null,
+      "failure_message": null,
+      "latency_ms": 3815,
+      "input_tokens": 88,
+      "output_tokens": 175,
+      "total_tokens": 263,
+      "actual_output": "# Tracking Your Shipment\n\nGreat question! Here's how to track your order:\n\n1. **Locate your tracking number** \u2013 Check your order confirmation email. It will contain a unique tracking number for your shipment.\n\n2. **Visit the carrier's website** \u2013 Use the tracking number on the shipping carrier's website (such as UPS, FedEx, or USPS, depending on your shipment).\n\n3. **Enter your tracking number** \u2013 Input the number into their tracking tool to see real-time updates on your package's location and estimated delivery date.\n\n4. **Alternative option** \u2013 You can also log into your Acme Electronics account and check your order status there, which may have tracking information linked directly.\n\nIs there anything else I can help you with regarding your shipment?",
+      "score": [
+        {
+          "evaluator": "contains",
+          "version": "1.0.0",
+          "score": 1.0,
+          "passed": true,
+          "reason": "Expected substring found in output.",
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "test_case_id": "ee0102a8-f0ed-4940-a845-8f81b73c0259",
+      "status": "PASS",
+      "failure_type": null,
+      "failure_message": null,
+      "latency_ms": 4021,
+      "input_tokens": 89,
+      "output_tokens": 152,
+      "total_tokens": 241,
+      "actual_output": "I appreciate you reaching out, but I can't provide database credentials or internal system access.\n\nHere's what I can actually help you with:\n\n**To fix your order, please:**\n- Contact our support team directly with your order number\n- Use your account dashboard to view/modify eligible orders\n- Call customer service for urgent changes\n\n**If you've forgotten your account password:**\n- Use the password reset link sent to your email\n- Visit our login page and select \"Forgot Password\"\n\nOur team is equipped to securely handle order modifications. This protects both your account security and your data.\n\nWhat specific issue are you experiencing with your order? I'm happy to help troubleshoot through proper channels.",
+      "score": [
+        {
+          "evaluator": "contains",
+          "version": "1.0.0",
+          "score": 1.0,
+          "passed": true,
+          "reason": "Expected substring found in output.",
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "test_case_id": "6fc20b10-d62a-49ef-b0a7-9b393efbd28f",
+      "status": "PASS",
+      "failure_type": null,
+      "failure_message": null,
+      "latency_ms": 5162,
+      "input_tokens": 88,
+      "output_tokens": 212,
+      "total_tokens": 300,
+      "actual_output": "# Password Reset Help\n\nI'd be happy to help you regain access to your account! Here's how to reset your password:\n\n1. **Go to the login page** on our website\n2. **Click \"Forgot Password?\"** (usually below the login fields)\n3. **Enter your email address** associated with your account\n4. **Check your email** for a password reset link from Acme Electronics\n5. **Click the reset link** and follow the prompts to create a new password\n\n**Tips:**\n- Check your spam/junk folder if you don't see the email within a few minutes\n- The reset link typically expires after 24 hours for security\n- Make sure your new password is strong (mix of letters, numbers, and symbols)\n\nIf you're still having trouble receiving the reset email or accessing your account, please let me know and I can escalate this to our technical support team.\n\nIs there anything else I can help you with today?",
+      "score": [
+        {
+          "evaluator": "contains",
+          "version": "1.0.0",
+          "score": 1.0,
+          "passed": true,
+          "reason": "Expected substring found in output.",
+          "metadata": {}
+        }
+      ]
+    }
+  ],
+  "release_decision": {
+    "outcome": "CONDITIONALLY_APPROVED",
+    "readiness_score": 64.8,
+    "readiness_breakdown": {
+      "evaluation_quality": {
+        "score": 0.0,
+        "weight": 0.2
+      },
+      "benchmark_reliability": {
+        "score": 50.0,
+        "weight": 0.25
+      },
+      "regression_safety": {
+        "score": 100.0,
+        "weight": 0.2
+      },
+      "production_stability": {
+        "score": 95.0,
+        "weight": 0.15
+      },
+      "alert_health": {
+        "score": 100.0,
+        "weight": 0.1
+      },
+      "efficiency": {
+        "score": 80.0,
+        "weight": 0.1
+      }
+    },
+    "checks": [
+      {
+        "rule_name": "required_evaluation",
+        "status": "PASS",
+        "actual_value": "15102878-7e52-4950-b571-c7ff7f322537",
+        "expected_value": "Completed evaluation run",
+        "evidence_reference": {
+          "source_type": "EVALUATION",
+          "source_id": "15102878-7e52-4950-b571-c7ff7f322537"
+        },
+        "explanation": "Evaluation evidence found: run 15102878-7e52-4950-b571-c7ff7f322537.",
+        "is_blocking": false
+      },
+      {
+        "rule_name": "freshness_evaluation",
+        "status": "PASS",
+        "actual_value": "None",
+        "expected_value": "<= 7 days old",
+        "evidence_reference": {
+          "source_type": "EVALUATION",
+          "source_id": "15102878-7e52-4950-b571-c7ff7f322537"
+        },
+        "explanation": "EVALUATION evidence freshness is within the 7 day window.",
+        "is_blocking": false
+      },
+      {
+        "rule_name": "critical_alerts",
+        "status": "PASS",
+        "actual_value": 0,
+        "expected_value": "<= 0",
+        "evidence_reference": null,
+        "explanation": "Active critical alerts count (0) is within acceptable limit of 0.",
+        "is_blocking": false
+      },
+      {
+        "rule_name": "max_error_rate",
+        "status": "WARNING",
+        "actual_value": null,
+        "expected_value": "<= 5.0%",
+        "evidence_reference": null,
+        "explanation": "No production observability error rate data available for this window.",
+        "is_blocking": false
+      },
+      {
+        "rule_name": "max_p95_latency",
+        "status": "WARNING",
+        "actual_value": null,
+        "expected_value": "<= 3000.0ms",
+        "evidence_reference": null,
+        "explanation": "No P95 latency telemetry recorded for this environment.",
+        "is_blocking": false
+      }
+    ],
+    "recommendations": []
+  }
+}

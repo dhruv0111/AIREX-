@@ -222,6 +222,130 @@ async def run_benchmark(job_id: str, payload: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+async def evaluate_release_decision(job_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """Execute a release decision evaluation asynchronously (Phase 10)."""
+    from uuid import UUID
+    from app.db.session import get_session_factory
+    from app.services.intelligence_service import IntelligenceService
+
+    decision_id_raw = payload.get("release_decision_id")
+    if not decision_id_raw:
+        raise ValueError("Missing release_decision_id in job payload.")
+
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        service = IntelligenceService(session)
+        decision = await service.evaluate_decision(UUID(decision_id_raw))
+
+        # Automatically publish canonical compliance evidence (Phase 15)
+        from app.models.project import Project
+        from app.services.evidence_service import publish_canonical_evidence
+        project = await session.get(Project, decision.project_id)
+        if project:
+            await publish_canonical_evidence(
+                session=session,
+                organization_id=project.organization_id,
+                source_type="release_decision",
+                source_id=str(decision.id),
+                project_id=decision.project_id,
+                metadata_summary={
+                    "status": decision.status,
+                    "outcome": decision.outcome,
+                    "readiness_score": decision.readiness_score,
+                },
+            )
+            await session.commit()
+
+        logger.info(
+            "release decision evaluation job completed",
+            extra={"job_id": job_id, "decision_id": decision_id_raw, "outcome": decision.outcome},
+        )
+        return {
+            "decision_id": str(decision.id),
+            "status": decision.status,
+            "outcome": decision.outcome,
+            "readiness_score": decision.readiness_score,
+        }
+
+
+async def run_agent_execution(job_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """Execute an agent task run asynchronously (Phase 11)."""
+    from uuid import UUID
+    from app.db.session import get_session_factory
+    from app.services.agent_service import AgentService
+
+    run_id_raw = payload.get("agent_run_id")
+    if not run_id_raw:
+        raise ValueError("Missing agent_run_id in job payload.")
+
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        service = AgentService(session)
+        eval_result = await service.evaluate_run(UUID(run_id_raw), task=payload.get("task"))
+
+        # Automatically publish canonical compliance evidence (Phase 15)
+        run_obj = await service.get_run(UUID(run_id_raw))
+        from app.models.project import Project
+        from app.services.evidence_service import publish_canonical_evidence
+        project = await session.get(Project, run_obj.project_id)
+        if project:
+            await publish_canonical_evidence(
+                session=session,
+                organization_id=project.organization_id,
+                source_type="agent_run",
+                source_id=str(run_id_raw),
+                project_id=run_obj.project_id,
+                metadata_summary={
+                    "status": eval_result.get("overall_status"),
+                    "reliability_score": eval_result.get("reliability_score"),
+                },
+            )
+            await session.commit()
+
+        logger.info(
+            "agent execution job completed",
+            extra={"job_id": job_id, "run_id": run_id_raw, "overall_status": eval_result.get("overall_status")},
+        )
+        return {
+            "agent_run_id": run_id_raw,
+            "status": eval_result.get("overall_status"),
+            "reliability_score": eval_result.get("reliability_score"),
+        }
+
+
+async def execute_centralized_retention(job_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """Execute centralized retention cleanup across all active organizations (Phase 14/15)."""
+    from app.db.session import get_session_factory
+    from app.services.retention_service import RetentionService
+    from app.models.organization import Organization
+    from sqlalchemy import select
+
+    session_factory = get_session_factory()
+    results = {}
+    dry_run = payload.get("dry_run", False)
+
+    async with session_factory() as session:
+        orgs = (await session.execute(select(Organization))).scalars().all()
+        service = RetentionService(session)
+        for org in orgs:
+            try:
+                res = await service.execute_retention_cleanup(
+                    organization_id=org.id,
+                    dry_run=dry_run,
+                    resource_types=payload.get("resource_types"),
+                )
+                results[str(org.id)] = res
+            except Exception as e:
+                logger.warning("Retention cleanup failed for org %s: %s", org.id, e)
+                results[str(org.id)] = {"error": str(e)}
+
+        if not dry_run:
+            await session.commit()
+
+    logger.info("centralized retention cleanup completed", extra={"job_id": job_id, "summary": results})
+    return results
+
+
 TASK_REGISTRY: dict[str, TaskHandler] = {
     "test_job": test_job,
     "run_evaluation": run_evaluation,
@@ -231,4 +355,7 @@ TASK_REGISTRY: dict[str, TaskHandler] = {
     "clean_observability_retention": clean_observability_retention,
     "evaluate_alerts": evaluate_alerts,
     "run_benchmark": run_benchmark,
+    "evaluate_release_decision": evaluate_release_decision,
+    "run_agent_execution": run_agent_execution,
+    "clean_centralized_retention": execute_centralized_retention,
 }

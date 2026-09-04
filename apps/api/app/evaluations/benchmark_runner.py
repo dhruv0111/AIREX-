@@ -439,6 +439,21 @@ class BenchmarkRunner:
 
             # Transition status to COMPLETED
             await repo.set_run_status(run, "COMPLETED")
+
+            # Automatically publish canonical compliance evidence (Phase 15)
+            from app.models.project import Project
+            from app.services.evidence_service import publish_canonical_evidence
+            project = await session.get(Project, suite.project_id)
+            if project:
+                await publish_canonical_evidence(
+                    session=session,
+                    organization_id=project.organization_id,
+                    source_type="benchmark_run",
+                    source_id=str(run.id),
+                    project_id=project.id,
+                    metadata_summary={"reliability_score": overall_score, "status": "COMPLETED"},
+                )
+
             await session.commit()
 
         return {"status": "COMPLETED", "reliability_score": overall_score}

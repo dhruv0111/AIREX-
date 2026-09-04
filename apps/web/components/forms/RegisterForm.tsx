@@ -5,6 +5,7 @@ import { useState } from "react";
 import { api, ApiClientError, setAccessToken } from "@airex/api-client";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
+import { FormField, Input } from "@/components/ui/Input";
 
 export function RegisterForm() {
   const router = useRouter();
@@ -27,8 +28,9 @@ export function RegisterForm() {
       const res = await api.register(name, email, password);
       setAccessToken(res.data.access_token);
       router.push("/dashboard");
-    } catch (err) {
-      if (err instanceof ApiClientError) setError(err.message);
+    } catch (err: any) {
+      if (err?.message) setError(err.message);
+      else if (err instanceof ApiClientError) setError(err.message);
       else setError("Unable to create account. Check that the API is running.");
     } finally {
       setLoading(false);
@@ -36,62 +38,70 @@ export function RegisterForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form onSubmit={onSubmit} className="space-y-4" data-testid="register-form">
       {error ? <Alert kind="error">{error}</Alert> : null}
-      <div>
-        <label htmlFor="name" className="mb-1 block text-sm font-medium">
-          Name
-        </label>
-        <input
+
+      <FormField label="Full Name" htmlFor="name" required>
+        <Input
           id="name"
+          type="text"
           required
+          autoComplete="name"
+          placeholder="Jane Doe"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="w-full rounded-md border border-slate-300 px-3 py-2"
+          data-testid="register-name"
         />
-      </div>
-      <div>
-        <label htmlFor="email" className="mb-1 block text-sm font-medium">
-          Email
-        </label>
-        <input
+      </FormField>
+
+      <FormField label="Work Email" htmlFor="email" required>
+        <Input
           id="email"
           type="email"
           required
+          autoComplete="email"
+          placeholder="jane@company.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded-md border border-slate-300 px-3 py-2"
+          data-testid="register-email"
         />
-      </div>
-      <div>
-        <label htmlFor="password" className="mb-1 block text-sm font-medium">
-          Password
-        </label>
-        <input
+      </FormField>
+
+      <FormField label="Password" htmlFor="password" required hint="At least 8 characters">
+        <Input
           id="password"
           type="password"
           required
           minLength={8}
+          autoComplete="new-password"
+          placeholder="••••••••"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded-md border border-slate-300 px-3 py-2"
+          data-testid="register-password"
         />
-      </div>
-      <div>
-        <label htmlFor="confirm" className="mb-1 block text-sm font-medium">
-          Confirm Password
-        </label>
-        <input
+      </FormField>
+
+      <FormField label="Confirm Password" htmlFor="confirm" required>
+        <Input
           id="confirm"
           type="password"
           required
+          autoComplete="new-password"
+          placeholder="••••••••"
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
-          className="w-full rounded-md border border-slate-300 px-3 py-2"
+          data-testid="register-confirm-password"
         />
-      </div>
-      <Button type="submit" disabled={loading} className="w-full">
-        {loading ? "Creating account…" : "Create account"}
+      </FormField>
+
+      <Button
+        type="submit"
+        disabled={loading}
+        isLoading={loading}
+        className="w-full mt-2"
+        data-testid="register-submit"
+      >
+        Create Account & Workspace
       </Button>
     </form>
   );
